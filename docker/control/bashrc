@@ -1,0 +1,13 @@
+cat <<EOF 
+Welcome to Chaos on Docker
+===========================
+
+This container runs the Chaos tests in sub-containers.
+
+You are currently in the base dir of the git repo for Chaos.
+
+To run a test:
+   cd tikv && go run
+EOF
+
+cd /go/src/github.com/siddontang/chaos
