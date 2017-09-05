@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"testing"
@@ -40,6 +41,27 @@ func TestInstallArchive(t *testing.T) {
 	err = InstallArchive(context.Background(), "https://github.com/siddontang/chaos/archive/master.tar.gz", path.Join(tmpDir, "2"))
 	if err != nil {
 		t.Fatalf("install archive failed %v", err)
+	}
+
+	archFile := path.Join(tmpDir, "a.tar.gz")
+	testCreateArichive(t, path.Join(tmpDir, "test"), archFile)
+	err = InstallArchive(context.Background(), "file://"+archFile, path.Join(tmpDir, "3"))
+	if err != nil {
+		t.Fatalf("install archive failed %v", err)
+	}
+}
+
+func testCreateArichive(t *testing.T, srcDir string, name string) {
+	os.MkdirAll(srcDir, 0755)
+	f, err := os.Create(path.Join(srcDir, "a.log"))
+	if err != nil {
+		t.Fatalf("create file failed %v", err)
+	}
+	f.WriteString("hello world")
+	f.Close()
+
+	if err = exec.Command("tar", "-cf", name, "-C", srcDir, ".").Run(); err != nil {
+		t.Fatalf("tar %f to %f failed %v", srcDir, name, err)
 	}
 }
 

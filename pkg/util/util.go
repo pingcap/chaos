@@ -54,7 +54,6 @@ func Wget(ctx context.Context, rawURL string, dest string) (string, error) {
 
 // InstallArchive downloads the URL and extracts the archive to the dest diretory.
 // Supports zip, and tarball.
-// TODO: support local file
 func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 	err := os.MkdirAll("/tmp/chaos", 0755)
 	if err != nil {
@@ -69,8 +68,12 @@ func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 	defer os.RemoveAll(tmpDir)
 
 	var name string
-	if name, err = Wget(ctx, rawURL, tmpDir); err != nil {
-		return err
+	if strings.HasPrefix(rawURL, "file://") {
+		name = strings.Trim(rawURL, "file://")
+	} else {
+		if name, err = Wget(ctx, rawURL, "/tmp/chaos"); err != nil {
+			return err
+		}
 	}
 
 	if strings.HasSuffix(name, ".zip") {
@@ -82,9 +85,6 @@ func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 	if err != nil {
 		return err
 	}
-
-	// Remove the archive file
-	os.Remove(name)
 
 	if dest, err = filepath.Abs(dest); err != nil {
 		return err
