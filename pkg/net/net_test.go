@@ -2,7 +2,6 @@ package net
 
 import (
 	"context"
-	"os"
 	"testing"
 )
 
@@ -28,20 +27,4 @@ func TestHostIP(t *testing.T) {
 	if HostIP("n0") != "" {
 		t.Fatal("must not get a host IP for n0")
 	}
-}
-
-func TestWget(t *testing.T) {
-	for i := 0; i < 2; i++ {
-		name, err := Wget(context.Background(), "https://raw.githubusercontent.com/pingcap/tikv/master/Cargo.toml")
-		if err != nil {
-			t.Fatalf("download failed %v", err)
-		}
-
-		_, err = os.Stat(name)
-		if err != nil {
-			t.Fatalf("stat %s failed %v", name, err)
-		}
-	}
-
-	os.Remove(name)
 }
