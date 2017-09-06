@@ -8,6 +8,7 @@ import (
 	"path"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestWget(t *testing.T) {
@@ -92,6 +93,8 @@ func TestDaemon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stop daemon failed %v", err)
 	}
+
+	time.Sleep(time.Second)
 
 	if IsProcessExist(pid) {
 		t.Fatalf("pid %d must not exist", pid)
