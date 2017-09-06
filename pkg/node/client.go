@@ -57,6 +57,26 @@ func (c *Client) TearDownDB(name string) error {
 	return c.doPost(fmt.Sprintf("/db/%s/teardown", name), nil)
 }
 
+// StartDB starts db
+func (c *Client) StartDB(name string) error {
+	return c.doPost(fmt.Sprintf("/db/%s/start", name), nil)
+}
+
+// StopDB stops db
+func (c *Client) StopDB(name string) error {
+	return c.doPost(fmt.Sprintf("/db/%s/stop", name), nil)
+}
+
+// KillDB kills db
+func (c *Client) KillDB(name string) error {
+	return c.doPost(fmt.Sprintf("/db/%s/kill", name), nil)
+}
+
+// IsDBRunning checks db is running
+func (c *Client) IsDBRunning(name string) bool {
+	return c.doPost(fmt.Sprintf("/db/%s/is_running", name), nil) == nil
+}
+
 // SetUpNemesis is to set up the nemesis
 func (c *Client) SetUpNemesis(name string) error {
 	return c.doPost(fmt.Sprintf("/nemesis/%s/setup", name), nil)

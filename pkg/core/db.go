@@ -9,8 +9,16 @@ import (
 type DB interface {
 	// SetUp initializes the database.
 	SetUp(ctx context.Context, node string) error
-	// TearDown tears down the datase.
+	// TearDown tears down the database.
 	TearDown(ctx context.Context, node string) error
+	// Start starts the database
+	Start(ctx context.Context, node string) error
+	// Stop stops the database
+	Stop(ctx context.Context, node string) error
+	// Kill kills the database
+	Kill(ctx context.Context, node string) error
+	// IsRunning checks whether the database is running or not
+	IsRunning(ctx context.Context, node string) bool
 	// Name returns the unique name for the database
 	Name() string
 }
@@ -27,6 +35,26 @@ func (NoopDB) SetUp(ctx context.Context, node string) error {
 // TearDown tears down the datase.
 func (NoopDB) TearDown(ctx context.Context, node string) error {
 	return nil
+}
+
+// Start starts the database
+func (NoopDB) Start(ctx context.Context, node string) error {
+	return nil
+}
+
+// Stop stops the database
+func (NoopDB) Stop(ctx context.Context, node string) error {
+	return nil
+}
+
+// Kill kills the database
+func (NoopDB) Kill(ctx context.Context, node string) error {
+	return nil
+}
+
+// IsRunning checks whether the database is running or not
+func (NoopDB) IsRunning(ctx context.Context, node string) bool {
+	return true
 }
 
 // Name returns the unique name for the database

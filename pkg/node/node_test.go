@@ -31,6 +31,22 @@ func TestNodeHandler(t *testing.T) {
 		t.Fatalf("setup db failed %v", err)
 	}
 
+	if err := client.StartDB("noop"); err != nil {
+		t.Fatalf("start db failed %v", err)
+	}
+
+	if !client.IsDBRunning("noop") {
+		t.Fatalf("db must be running")
+	}
+
+	if err := client.StopDB("noop"); err != nil {
+		t.Fatalf("stop db failed %v", err)
+	}
+
+	if err := client.KillDB("noop"); err != nil {
+		t.Fatalf("kill db failed %v", err)
+	}
+
 	if err := client.TearDownDB("noop"); err != nil {
 		t.Fatalf("tear down db failed %v", err)
 	}

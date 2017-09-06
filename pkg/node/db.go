@@ -58,7 +58,65 @@ func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
+	h.rd.JSON(w, http.StatusOK, nil)
+}
+
+func (h *dbHandler) Start(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	db := h.getDB(w, vars)
+	if db == nil {
+		return
+	}
+
+	if err := db.Start(h.n.ctx, h.n.name); err != nil {
+		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.rd.JSON(w, http.StatusOK, nil)
+}
+
+func (h *dbHandler) Stop(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	db := h.getDB(w, vars)
+	if db == nil {
+		return
+	}
+
+	if err := db.Stop(h.n.ctx, h.n.name); err != nil {
+		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.rd.JSON(w, http.StatusOK, nil)
+}
+
+func (h *dbHandler) Kill(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	db := h.getDB(w, vars)
+	if db == nil {
+		return
+	}
+
+	if err := db.Kill(h.n.ctx, h.n.name); err != nil {
+		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.rd.JSON(w, http.StatusOK, nil)
+}
+
+func (h *dbHandler) IsRunning(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	db := h.getDB(w, vars)
+	if db == nil {
+		return
+	}
+
+	if !db.IsRunning(h.n.ctx, h.n.name) {
+		h.rd.JSON(w, http.StatusNotFound, fmt.Sprintf("db %s is not running", db.Name()))
+		return
+	}
 
 	h.rd.JSON(w, http.StatusOK, nil)
 }
