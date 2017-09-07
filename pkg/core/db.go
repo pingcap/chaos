@@ -6,6 +6,7 @@ import (
 )
 
 // DB allows Chaos to set up and tear down database.
+// DB is used in node, you should define your own DB and register it.
 type DB interface {
 	// SetUp initializes the database.
 	SetUp(ctx context.Context, node string) error

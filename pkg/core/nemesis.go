@@ -3,9 +3,11 @@ package core
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // Nemesis injects failure and disturbs the database.
+// Nemesis is used in node, you can define your own nemesis and register it.
 type Nemesis interface {
 	// // SetUp initializes the nemesis
 	// SetUp(ctx context.Context, node string) error
@@ -65,6 +67,37 @@ func RegisterNemesis(n Nemesis) {
 // GetNemesis gets the registered nemesis. Panic if not found.
 func GetNemesis(name string) Nemesis {
 	return nemesises[name]
+}
+
+// NemesisOperation is nemesis operation used in control.
+type NemesisOperation struct {
+	// Nemesis name
+	Name string
+	// Nemesis start args
+	StartArgs []string
+	// Nemesis stop args
+	StopArgs []string
+	// The wait time after the contorl starts the nemesis.
+	// Then the control will stop the nemesis.
+	WaitTime time.Duration
+}
+
+// NemesisGenerator is used in control, it will generate a nemesis operation
+// and then the control can use it to disturb the cluster.
+type NemesisGenerator interface {
+	// Generate generates the nemesis operation for all nodes.
+	// Every node will be assigned a nemesis operation.
+	Generate() []NemesisOperation
+}
+
+// NewNoopNemesisOperation creates a noop nemesis operation.
+func NewNoopNemesisOperation() NemesisOperation {
+	return NemesisOperation{
+		Name:      "noop",
+		StartArgs: nil,
+		StopArgs:  nil,
+		WaitTime:  0,
+	}
 }
 
 func init() {
