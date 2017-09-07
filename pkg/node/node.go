@@ -74,10 +74,11 @@ func (n *Node) createRouter() *mux.Router {
 	router := mux.NewRouter().PathPrefix(apiPrefix).Subrouter()
 
 	nemesisHandler := newNemesisHandler(n, rd)
-	router.HandleFunc("/nemesis/{name}/setup", nemesisHandler.SetUp).Methods("POST")
-	router.HandleFunc("/nemesis/{name}/teardown", nemesisHandler.TearDown).Methods("POST")
-	router.HandleFunc("/nemesis/{name}/invoke", nemesisHandler.Invoke).Methods("POST")
-	
+	// router.HandleFunc("/nemesis/{name}/setup", nemesisHandler.SetUp).Methods("POST")
+	// router.HandleFunc("/nemesis/{name}/teardown", nemesisHandler.TearDown).Methods("POST")
+	router.HandleFunc("/nemesis/{name}/start", nemesisHandler.Start).Methods("POST")
+	router.HandleFunc("/nemesis/{name}/stop", nemesisHandler.Stop).Methods("POST")
+
 	dbHandler := newDBHanlder(n, rd) 
 	router.HandleFunc("/db/{name}/setup", dbHandler.SetUp).Methods("POST")
 	router.HandleFunc("/db/{name}/teardown", dbHandler.TearDown).Methods("POST")

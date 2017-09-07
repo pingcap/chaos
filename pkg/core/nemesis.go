@@ -7,12 +7,15 @@ import (
 
 // Nemesis injects failure and disturbs the database.
 type Nemesis interface {
-	// SetUp initializes the nemesis
-	SetUp(ctx context.Context, node string) error
-	// TearDown tears down the nemesis
-	TearDown(ctx context.Context, node string) error
-	// Invoke executs the nemesis
-	Invoke(ctx context.Context, node string, args ...string) error
+	// // SetUp initializes the nemesis
+	// SetUp(ctx context.Context, node string) error
+	// // TearDown tears down the nemesis
+	// TearDown(ctx context.Context, node string) error
+
+	// Start starts the nemesis
+	Start(ctx context.Context, node string, args ...string) error
+	// Stop stops the nemesis
+	Stop(ctx context.Context, node string, args ...string) error
 	// Name returns the unique name for the nemesis
 	Name() string
 }
@@ -21,18 +24,23 @@ type Nemesis interface {
 type NoopNemesis struct {
 }
 
-// SetUp initializes the nemesis
-func (NoopNemesis) SetUp(ctx context.Context, node string) error {
+// // SetUp initializes the nemesis
+// func (NoopNemesis) SetUp(ctx context.Context, node string) error {
+// 	return nil
+// }
+
+// // TearDown tears down the nemesis
+// func (NoopNemesis) TearDown(ctx context.Context, node string) error {
+// 	return nil
+// }
+
+// Start starts the nemesis
+func (NoopNemesis) Start(ctx context.Context, node string, args ...string) error {
 	return nil
 }
 
-// TearDown tears down the nemesis
-func (NoopNemesis) TearDown(ctx context.Context, node string) error {
-	return nil
-}
-
-// Invoke executs the nemesis
-func (NoopNemesis) Invoke(ctx context.Context, node string, args ...string) error {
+// Stop stops the nemesis
+func (NoopNemesis) Stop(ctx context.Context, node string, args ...string) error {
 	return nil
 }
 

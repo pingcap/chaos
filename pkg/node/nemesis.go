@@ -32,37 +32,37 @@ func (h *nemesisHandler) getNemesis(w http.ResponseWriter, vars map[string]strin
 	return nemesis
 }
 
-func (h *nemesisHandler) SetUp(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	nemesis := h.getNemesis(w, vars)
-	if nemesis == nil {
-		return
-	}
+// func (h *nemesisHandler) SetUp(w http.ResponseWriter, r *http.Request) {
+// 	vars := mux.Vars(r)
+// 	nemesis := h.getNemesis(w, vars)
+// 	if nemesis == nil {
+// 		return
+// 	}
 
-	if err := nemesis.SetUp(h.n.ctx, h.n.name); err != nil {
-		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+// 	if err := nemesis.SetUp(h.n.ctx, h.n.name); err != nil {
+// 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
 
-	h.rd.JSON(w, http.StatusOK, nil)
-}
+// 	h.rd.JSON(w, http.StatusOK, nil)
+// }
 
-func (h *nemesisHandler) TearDown(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	nemesis := h.getNemesis(w, vars)
-	if nemesis == nil {
-		return
-	}
+// func (h *nemesisHandler) TearDown(w http.ResponseWriter, r *http.Request) {
+// 	vars := mux.Vars(r)
+// 	nemesis := h.getNemesis(w, vars)
+// 	if nemesis == nil {
+// 		return
+// 	}
 
-	if err := nemesis.TearDown(h.n.ctx, h.n.name); err != nil {
-		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+// 	if err := nemesis.TearDown(h.n.ctx, h.n.name); err != nil {
+// 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
 
-	h.rd.JSON(w, http.StatusOK, nil)
-}
+// 	h.rd.JSON(w, http.StatusOK, nil)
+// }
 
-func (h *nemesisHandler) Invoke(w http.ResponseWriter, r *http.Request) {
+func (h *nemesisHandler) Start(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	nemesis := h.getNemesis(w, vars)
 	if nemesis == nil {
@@ -70,7 +70,23 @@ func (h *nemesisHandler) Invoke(w http.ResponseWriter, r *http.Request) {
 	}
 
 	args := strings.Split(r.FormValue("args"), ",")
-	if err := nemesis.Invoke(h.n.ctx, h.n.name, args...); err != nil {
+	if err := nemesis.Start(h.n.ctx, h.n.name, args...); err != nil {
+		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.rd.JSON(w, http.StatusOK, nil)
+}
+
+func (h *nemesisHandler) Stop(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	nemesis := h.getNemesis(w, vars)
+	if nemesis == nil {
+		return
+	}
+
+	args := strings.Split(r.FormValue("args"), ",")
+	if err := nemesis.Stop(h.n.ctx, h.n.name, args...); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}

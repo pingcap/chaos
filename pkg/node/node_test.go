@@ -51,19 +51,23 @@ func TestNodeHandler(t *testing.T) {
 		t.Fatalf("tear down db failed %v", err)
 	}
 
-	if err := client.SetUpNemesis("noop"); err != nil {
-		t.Fatalf("setup nemesis failed %v", err)
+	// if err := client.SetUpNemesis("noop"); err != nil {
+	// 	t.Fatalf("setup nemesis failed %v", err)
+	// }
+
+	if err := client.StartNemesis("noop"); err != nil {
+		t.Fatalf("start nemesis failed %v", err)
 	}
 
-	if err := client.InvokeNemesis("noop"); err != nil {
-		t.Fatalf("invoke nemesis failed %v", err)
+	if err := client.StartNemesis("noop", "a", "b", "c"); err != nil {
+		t.Fatalf("start nemesis failed %v", err)
 	}
 
-	if err := client.InvokeNemesis("noop", "a", "b", "c"); err != nil {
-		t.Fatalf("invoke nemesis failed %v", err)
+	if err := client.StopNemesis("noop", "a", "b", "c"); err != nil {
+		t.Fatalf("stop nemesis failed %v", err)
 	}
 
-	if err := client.TearDownNemesis("noop"); err != nil {
-		t.Fatalf("tear down nemesis failed %v", err)
-	}
+	// if err := client.TearDownNemesis("noop"); err != nil {
+	// 	t.Fatalf("tear down nemesis failed %v", err)
+	// }
 }

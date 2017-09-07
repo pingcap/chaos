@@ -77,19 +77,28 @@ func (c *Client) IsDBRunning(name string) bool {
 	return c.doPost(fmt.Sprintf("/db/%s/is_running", name), nil) == nil
 }
 
-// SetUpNemesis is to set up the nemesis
-func (c *Client) SetUpNemesis(name string) error {
-	return c.doPost(fmt.Sprintf("/nemesis/%s/setup", name), nil)
+// // SetUpNemesis is to set up the nemesis
+// func (c *Client) SetUpNemesis(name string) error {
+// 	return c.doPost(fmt.Sprintf("/nemesis/%s/setup", name), nil)
+// }
+
+// // TearDownNemesis tears down nemesis
+// func (c *Client) TearDownNemesis(name string) error {
+// 	return c.doPost(fmt.Sprintf("/nemesis/%s/teardown", name), nil)
+// }
+
+// StartNemesis starts nemesis
+func (c *Client) StartNemesis(name string, args ...string) error {
+	suffix := fmt.Sprintf("/nemesis/%s/start", name)
+	if len(args) > 0 {
+		suffix = fmt.Sprintf("%s?args=%s", suffix, strings.Join(args, ","))
+	}
+	return c.doPost(suffix, nil)
 }
 
-// TearDownNemesis tears down nemesis
-func (c *Client) TearDownNemesis(name string) error {
-	return c.doPost(fmt.Sprintf("/nemesis/%s/teardown", name), nil)
-}
-
-// InvokeNemesis invokes nemesis
-func (c *Client) InvokeNemesis(name string, args ...string) error {
-	suffix := fmt.Sprintf("/nemesis/%s/invoke", name)
+// StopNemesis stops nemesis
+func (c *Client) StopNemesis(name string, args ...string) error {
+	suffix := fmt.Sprintf("/nemesis/%s/stop", name)
 	if len(args) > 0 {
 		suffix = fmt.Sprintf("%s?args=%s", suffix, strings.Join(args, ","))
 	}
