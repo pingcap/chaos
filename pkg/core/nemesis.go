@@ -88,6 +88,7 @@ type NemesisGenerator interface {
 	// Generate generates the nemesis operation for all nodes.
 	// Every node will be assigned a nemesis operation.
 	Generate() []NemesisOperation
+	String() string
 }
 
 // NewNoopNemesisOperation creates a noop nemesis operation.

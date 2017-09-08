@@ -19,8 +19,13 @@ func NewClient(nodeName string, addr string) *Client {
 	return &Client{
 		node:   nodeName,
 		addr:   addr,
-		client: &http.Client{},
+		client: http.DefaultClient,
 	}
+}
+
+// Node returns the node name.
+func (c *Client) Node() string {
+	return c.node
 }
 
 func (c *Client) getURLPrefix() string {

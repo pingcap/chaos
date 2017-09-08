@@ -79,13 +79,13 @@ func (n *Node) createRouter() *mux.Router {
 	router.HandleFunc("/nemesis/{name}/start", nemesisHandler.Start).Methods("POST")
 	router.HandleFunc("/nemesis/{name}/stop", nemesisHandler.Stop).Methods("POST")
 
-	dbHandler := newDBHanlder(n, rd) 
+	dbHandler := newDBHanlder(n, rd)
 	router.HandleFunc("/db/{name}/setup", dbHandler.SetUp).Methods("POST")
 	router.HandleFunc("/db/{name}/teardown", dbHandler.TearDown).Methods("POST")
 	router.HandleFunc("/db/{name}/start", dbHandler.SetUp).Methods("POST")
 	router.HandleFunc("/db/{name}/stop", dbHandler.TearDown).Methods("POST")
 	router.HandleFunc("/db/{name}/kill", dbHandler.SetUp).Methods("POST")
 	router.HandleFunc("/db/{name}/is_running", dbHandler.TearDown).Methods("POST")
-	
+
 	return router
 }
