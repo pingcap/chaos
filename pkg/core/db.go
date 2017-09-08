@@ -70,13 +70,13 @@ func RegisterDB(db DB) {
 	name := db.Name()
 	_, ok := dbs[name]
 	if ok {
-		panic(fmt.Sprintf("%s is already registered", name))
+		panic(fmt.Sprintf("db %s is already registered", name))
 	}
 
 	dbs[name] = db
 }
 
-// GetDB gets the registered db. Panic if not found.
+// GetDB gets the registered db. 
 func GetDB(name string) DB {
 	return dbs[name]
 }

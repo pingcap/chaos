@@ -32,11 +32,15 @@ type Controller struct {
 // NewController creates a controller.
 // nodePort is used to communicate with the node server.
 // db is the name which we want to run, you must register the db in the node before.
-// clientCreator creates the client to communicate with the db.
-func NewController(nodePort int, db string, clientCreator core.ClientCreator) *Controller {
+// You must also register the client creator for the db before.
+func NewController(nodePort int, db string) *Controller {
 	c := new(Controller)
 	c.db = db
 	c.ctx, c.cancel = context.WithCancel(context.Background())
+	clientCreator := core.GetClientCreator(db)
+	if clientCreator == nil {
+		log.Fatalf("must register the client creator for db %s", db)
+	}
 
 	for i := 1; i <= 5; i++ {
 		name := fmt.Sprintf("n%d", i)

@@ -58,13 +58,13 @@ func RegisterNemesis(n Nemesis) {
 	name := n.Name()
 	_, ok := nemesises[name]
 	if ok {
-		panic(fmt.Sprintf("%s is already registered", name))
+		panic(fmt.Sprintf("nemesis %s is already registered", name))
 	}
 
 	nemesises[name] = n
 }
 
-// GetNemesis gets the registered nemesis. Panic if not found.
+// GetNemesis gets the registered nemesis.
 func GetNemesis(name string) Nemesis {
 	return nemesises[name]
 }

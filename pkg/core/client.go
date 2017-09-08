@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 )
 
 // Request is the request passed to client Invoke.
@@ -34,8 +35,23 @@ type Client interface {
 // ClientCreator creates a client.
 // The control will create one client for one node.
 type ClientCreator interface {
+	// Create creates the client.
 	Create(node string) Client
+	// CreateRequestGenerator creates the request generator.
 	CreateRequestGenerator() RequestGenerator
+}
+
+type noopClientCreator struct {
+}
+
+// Create creates the client.
+func (noopClientCreator) Create(node string) Client {
+	return noopClient{}
+}
+
+// CreateRequestGenerator creates the request generator.
+func (noopClientCreator) CreateRequestGenerator() RequestGenerator {
+	return noopRequestGenerator{}
 }
 
 // noopClient is a noop client
@@ -65,20 +81,32 @@ func (noopResponse) String() string {
 	return "ok"
 }
 
-// NoopRequestGenerator generates noop request.
-type NoopRequestGenerator struct {
+// noopRequestGenerator generates noop request.
+type noopRequestGenerator struct {
 }
 
 // Generate implementes Generate interface.
-func (NoopRequestGenerator) Generate() Request {
+func (noopRequestGenerator) Generate() Request {
 	return noopRequest{}
 }
 
-// NoopClientCreator creates noop client
-type NoopClientCreator struct {
+var clientCreators = map[string]ClientCreator{}
+
+// RegisterClientCreator registers the client creator for the associated db. Not thread-safe
+func RegisterClientCreator(db string, c ClientCreator) {
+	_, ok := clientCreators[db]
+	if ok {
+		panic(fmt.Sprintf("client creator %s is already registered", db))
+	}
+
+	clientCreators[db] = c
 }
 
-// Create implements the Create interface.
-func (NoopClientCreator) Create(node string) Client {
-	return noopClient{}
+// GetClientCreator gets the registered client creator.
+func GetClientCreator(name string) ClientCreator {
+	return clientCreators[name]
+}
+
+func init() {
+	RegisterClientCreator("noop", noopClientCreator{})
 }
