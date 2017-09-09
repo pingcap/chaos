@@ -62,7 +62,7 @@ func testCreateArichive(t *testing.T, srcDir string, name string) {
 	f.Close()
 
 	if err = exec.Command("tar", "-cf", name, "-C", srcDir, ".").Run(); err != nil {
-		t.Fatalf("tar %f to %f failed %v", srcDir, name, err)
+		t.Fatalf("tar %s to %s failed %v", srcDir, name, err)
 	}
 }
 
@@ -72,9 +72,10 @@ func TestDaemon(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir(".", "var")
 	defer os.RemoveAll(tmpDir)
 
+	cmd := "/bin/sleep"
 	pidFile := path.Join(tmpDir, "sleep.pid")
 	opts := NewDaemonOptions(tmpDir, pidFile, path.Join(tmpDir, "sleep.log"))
-	err := StartDaemon(context.Background(), opts, "/bin/sleep", "100")
+	err := StartDaemon(context.Background(), opts, cmd, "100")
 	if err != nil {
 		t.Fatalf("start daemon failed %v", err)
 	}
@@ -89,7 +90,11 @@ func TestDaemon(t *testing.T) {
 		t.Fatalf("pid %d must exist", pid)
 	}
 
-	err = StopDaemon(context.Background(), "", pidFile)
+	if !IsDaemonRunning(context.Background(), cmd, pidFile) {
+		t.Fatal("daemon must be running")
+	}
+
+	err = StopDaemon(context.Background(), cmd, pidFile)
 	if err != nil {
 		t.Fatalf("stop daemon failed %v", err)
 	}
@@ -100,4 +105,11 @@ func TestDaemon(t *testing.T) {
 		t.Fatalf("pid %d must not exist", pid)
 	}
 
+	if IsFileExist(pidFile) {
+		t.Fatalf("pid file must not exist")
+	}
+
+	if IsDaemonRunning(context.Background(), cmd, pidFile) {
+		t.Fatal("daemon must be not running")
+	}
 }

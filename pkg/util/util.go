@@ -105,26 +105,17 @@ func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 
 // DaemonOptions is the options to start a command in daemon mode.
 type DaemonOptions struct {
-	Background       bool
-	ChDir            string
-	LogFile          string
-	MakePidFile      bool
-	MatchExecutable  bool
-	MatchProcessName bool
-	PidFile          string
-	ProcessName      string
+	ChDir   string
+	LogFile string
+	PidFile string
 }
 
 // NewDaemonOptions returns a default daemon options.
 func NewDaemonOptions(chDir string, pidFile string, logFile string) DaemonOptions {
 	return DaemonOptions{
-		Background:       true,
-		MakePidFile:      true,
-		MatchExecutable:  true,
-		MatchProcessName: false,
-		ChDir:            chDir,
-		PidFile:          pidFile,
-		LogFile:          logFile,
+		ChDir:   chDir,
+		PidFile: pidFile,
+		LogFile: logFile,
 	}
 }
 
@@ -132,26 +123,11 @@ func NewDaemonOptions(chDir string, pidFile string, logFile string) DaemonOption
 func StartDaemon(ctx context.Context, opts DaemonOptions, cmd string, cmdArgs ...string) error {
 	var args []string
 	args = append(args, "--start")
+	args = append(args, "--background", "--no-close")
+	args = append(args, "--make-pidfile")
 
-	if opts.Background {
-		args = append(args, "--background", "--no-close")
-	}
-
-	if opts.MakePidFile {
-		args = append(args, "--make-pidfile")
-	}
-
-	if opts.MatchExecutable {
-		args = append(args, "--exec", cmd)
-	}
-
-	if opts.MatchProcessName {
-		processName := opts.ProcessName
-		if len(processName) == 0 {
-			processName = path.Base(cmd)
-		}
-		args = append(args, "--name", processName)
-	}
+	processName := path.Base(cmd)
+	args = append(args, "--name", processName)
 
 	args = append(args, "--pidfile", opts.PidFile)
 	args = append(args, "--chdir", opts.ChDir)
@@ -180,24 +156,28 @@ func parsePID(pidFile string) string {
 	return strings.TrimSpace(string(data))
 }
 
-// StopDaemon kills the daemon process by pid file or by the command name.
+// StopDaemon stops the daemon process.
 func StopDaemon(ctx context.Context, cmd string, pidFile string) error {
-	var err error
-	if len(cmd) > 0 {
-		err = exec.CommandContext(ctx, "killall", "-9", "-w", cmd).Run()
-	} else {
-		if pid := parsePID(pidFile); len(pid) > 0 {
-			err = exec.CommandContext(ctx, "kill", "-9", pid).Run()
-		}
-	}
+	return stopDaemon(ctx, cmd, pidFile, "TERM")
+}
 
-	if err != nil {
-		return err
-	}
+// KillDaemon kills the daemon process.
+func KillDaemon(ctx context.Context, cmd string, pidFile string) error {
+	return stopDaemon(ctx, cmd, pidFile, "KILL")
+}
 
-	if err = os.Remove(pidFile); os.IsNotExist(err) {
-		err = nil
-	}
+func stopDaemon(ctx context.Context, cmd string, pidFile string, sig string) error {
+	name := path.Base(cmd)
 
-	return nil
+	return exec.CommandContext(ctx, "start-stop-daemon", "--stop", "--remove-pidfile",
+		"--pidfile", pidFile, "--oknodo", "--name", name, "--signal", sig).Run()
+}
+
+// IsDaemonRunning returns whether the daemon is still running or not.
+func IsDaemonRunning(ctx context.Context, cmd string, pidFile string) bool {
+	name := path.Base(cmd)
+
+	err := exec.CommandContext(ctx, "start-stop-daemon", "--status", "--pidfile", pidFile, "--name", name).Run()
+
+	return err == nil
 }
