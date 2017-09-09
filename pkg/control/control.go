@@ -15,7 +15,7 @@ import (
 // and also uses nemesis to disturb the cluster.
 // Here have only 5 nodes, and the hosts are n1 - n5.
 type Controller struct {
-	db string
+	cfg *Config
 
 	nodes       []string
 	nodeClients []*node.Client
@@ -30,22 +30,21 @@ type Controller struct {
 }
 
 // NewController creates a controller.
-// nodePort is used to communicate with the node server.
-// db is the name which we want to run, you must register the db in the node before.
-// You must also register the client creator for the db before.
-func NewController(nodePort int, db string) *Controller {
+func NewController(cfg *Config) *Controller {
+	cfg.adjust()
+
 	c := new(Controller)
-	c.db = db
+	c.cfg = cfg
 	c.ctx, c.cancel = context.WithCancel(context.Background())
-	clientCreator := core.GetClientCreator(db)
+	clientCreator := core.GetClientCreator(cfg.DB)
 	if clientCreator == nil {
-		log.Fatalf("must register the client creator for db %s", db)
+		log.Fatalf("must register the client creator for db %s", cfg.DB)
 	}
 
 	for i := 1; i <= 5; i++ {
 		name := fmt.Sprintf("n%d", i)
 		c.nodes = append(c.nodes, name)
-		client := node.NewClient(name, fmt.Sprintf("%s:%d", name, nodePort))
+		client := node.NewClient(name, fmt.Sprintf("%s:%d", name, cfg.NodePort))
 		c.nodeClients = append(c.nodeClients, client)
 		c.clients = append(c.clients, clientCreator.Create(name))
 		c.requestGenerator = append(c.requestGenerator, clientCreator.CreateRequestGenerator())
@@ -65,17 +64,7 @@ func (c *Controller) AddNemesisGenerator(g core.NemesisGenerator) {
 }
 
 // Run runs the controller.
-// requestCount controls how many requests a client sends to the db and runTime controls how
-// long the controller takes. If any exceeds the value, we will stop the controller.
-func (c *Controller) Run(requestCount int, runTime time.Duration) {
-	if requestCount == 0 {
-		requestCount = 10000
-	}
-
-	if runTime == 0 {
-		runTime = time.Minute * 5
-	}
-
+func (c *Controller) Run() {
 	if len(c.requestGenerator) == 0 {
 		log.Fatal("must add a request generator")
 	}
@@ -88,7 +77,7 @@ func (c *Controller) Run(requestCount int, runTime time.Duration) {
 	for i := 0; i < n; i++ {
 		go func(i int) {
 			defer clientWg.Done()
-			c.onClientLoop(i, requestCount, runTime)
+			c.onClientLoop(i)
 		}(i)
 	}
 
@@ -118,8 +107,8 @@ func (c *Controller) setUpDB() {
 			defer wg.Done()
 			client := c.nodeClients[i]
 			log.Printf("begin to set up database on %s", c.nodes[i])
-			if err := client.SetUpDB(c.db); err != nil {
-				log.Fatalf("setup db %s at node %s failed %v", c.db, c.nodes[i], err)
+			if err := client.SetUpDB(c.cfg.DB); err != nil {
+				log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 			}
 		}(i)
 	}
@@ -136,20 +125,20 @@ func (c *Controller) tearDownDB() {
 			defer wg.Done()
 			client := c.nodeClients[i]
 			log.Printf("being to tear down database on %s", c.nodes[i])
-			if err := client.TearDownDB(c.db); err != nil {
-				log.Fatalf("tear down db %s at node %s failed %v", c.db, c.nodes[i], err)
+			if err := client.TearDownDB(c.cfg.DB); err != nil {
+				log.Fatalf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 			}
 		}(i)
 	}
 	wg.Wait()
 }
 
-func (c *Controller) onClientLoop(i int, requestCount int, runTime time.Duration) {
+func (c *Controller) onClientLoop(i int) {
 	client := c.clients[i]
 	gen := c.requestGenerator[i]
 	node := c.nodes[i]
 
-	ctx, cancel := context.WithTimeout(c.ctx, runTime)
+	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
 
 	log.Printf("begin to set up db client for node %s", node)
@@ -164,7 +153,7 @@ func (c *Controller) onClientLoop(i int, requestCount int, runTime time.Duration
 		}
 	}()
 
-	for i := 0; i < requestCount; i++ {
+	for i := 0; i < c.cfg.RequestCount; i++ {
 		request := gen.Generate()
 
 		// TODO: add to history
