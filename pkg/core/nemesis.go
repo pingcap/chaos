@@ -87,7 +87,7 @@ type NemesisOperation struct {
 type NemesisGenerator interface {
 	// Generate generates the nemesis operation for all nodes.
 	// Every node will be assigned a nemesis operation.
-	Generate() []NemesisOperation
+	Generate(nodes []string) []NemesisOperation
 	Name() string
 }
 
@@ -99,6 +99,24 @@ func NewNoopNemesisOperation() NemesisOperation {
 		StopArgs:  nil,
 		WaitTime:  0,
 	}
+}
+
+// NoopNemesisGenerator generates
+type NoopNemesisGenerator struct {
+}
+
+// Name returns the name
+func (NoopNemesisGenerator) Name() string {
+	return "noop"
+}
+
+//Generate generates the nemesis operation for the nodes.
+func (NoopNemesisGenerator) Generate(nodes []string) []NemesisOperation {
+	ops := make([]NemesisOperation, len(nodes))
+	for i := 0; i < len(ops); i++ {
+		ops[i] = NewNoopNemesisOperation()
+	}
+	return ops
 }
 
 func init() {

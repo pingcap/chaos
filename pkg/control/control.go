@@ -30,16 +30,16 @@ type Controller struct {
 }
 
 // NewController creates a controller.
-func NewController(cfg *Config) *Controller {
-	cfg.adjust()
+func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerators []core.NemesisGenerator) *Controller {
+	if err := cfg.adjust(); err != nil {
+		log.Fatalf("invalid config %v", err)
+	}
 
 	c := new(Controller)
 	c.cfg = cfg
 	c.ctx, c.cancel = context.WithCancel(context.Background())
-	clientCreator := core.GetClientCreator(cfg.DB)
-	if clientCreator == nil {
-		log.Fatalf("must register the client creator for db %s", cfg.DB)
-	}
+
+	c.nemesisGenerators = nemesisGenerators
 
 	for i := 1; i <= 5; i++ {
 		name := fmt.Sprintf("n%d", i)
@@ -56,11 +56,6 @@ func NewController(cfg *Config) *Controller {
 // Close closes the controller.
 func (c *Controller) Close() {
 	c.cancel()
-}
-
-// AddNemesisGenerator adds a nemesis generator.
-func (c *Controller) AddNemesisGenerator(g core.NemesisGenerator) {
-	c.nemesisGenerators = append(c.nemesisGenerators, g)
 }
 
 // Run runs the controller.
@@ -182,7 +177,7 @@ LOOP:
 			}
 
 			log.Printf("begin to run %s nemesis generator", g.Name())
-			ops := g.Generate()
+			ops := g.Generate(c.nodes)
 
 			wg.Add(n)
 			for i := 0; i < n; i++ {

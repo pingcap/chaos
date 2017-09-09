@@ -1,11 +1,12 @@
 package node
 
-import "net/http"
-import "fmt"
-import "io/ioutil"
-import "bytes"
-
-import "strings"
+import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+)
 
 // Client is used to communicate with the node server
 type Client struct {

@@ -1,13 +1,15 @@
 package control
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // Config is the configuration for the controller.
 type Config struct {
 	// NodePort is used to communicate with the node server.
 	NodePort int
 	// DB is the name which we want to run, you must register the db in the node before.
-	// You must also register the client creator for the db before.
 	DB string
 	// RequestCount controls how many requests a client sends to the db
 	RequestCount int
@@ -15,7 +17,11 @@ type Config struct {
 	RunTime time.Duration
 }
 
-func (c *Config) adjust() {
+func (c *Config) adjust() error {
+	if len(c.DB) == 0 {
+		return errors.New("empty database")
+	}
+
 	if c.RequestCount == 0 {
 		c.RequestCount = 10000
 	}
@@ -23,4 +29,6 @@ func (c *Config) adjust() {
 	if c.RunTime == 0 {
 		c.RunTime = 10 * time.Minute
 	}
+
+	return nil
 }
