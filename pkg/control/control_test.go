@@ -8,6 +8,8 @@ import (
 )
 
 func TestControl(t *testing.T) {
+	t.Log("test can only be run in the chaos docker")
+
 	cfg := &Config{
 		NodePort:     8080,
 		RequestCount: 10,
