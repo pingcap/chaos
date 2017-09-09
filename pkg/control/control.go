@@ -192,7 +192,7 @@ LOOP:
 			default:
 			}
 
-			log.Printf("begin to run %s nemesis generator", g)
+			log.Printf("begin to run %s nemesis generator", g.Name())
 			ops := g.Generate()
 
 			wg.Add(n)
