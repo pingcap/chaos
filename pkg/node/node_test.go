@@ -16,7 +16,7 @@ func getNodeAddr(t *testing.T) string {
 }
 func TestNodeHandler(t *testing.T) {
 	addr := getNodeAddr(t)
-	node := NewNode("n0", addr)
+	node := NewNode(addr)
 	defer node.Close()
 
 	client := NewClient("n0", addr)
@@ -27,7 +27,8 @@ func TestNodeHandler(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	if err := client.SetUpDB("noop"); err != nil {
+	nodes := []string{"n0"}
+	if err := client.SetUpDB("noop", nodes); err != nil {
 		t.Fatalf("setup db failed %v", err)
 	}
 
@@ -47,13 +48,9 @@ func TestNodeHandler(t *testing.T) {
 		t.Fatalf("kill db failed %v", err)
 	}
 
-	if err := client.TearDownDB("noop"); err != nil {
+	if err := client.TearDownDB("noop", nodes); err != nil {
 		t.Fatalf("tear down db failed %v", err)
 	}
-
-	// if err := client.SetUpNemesis("noop"); err != nil {
-	// 	t.Fatalf("setup nemesis failed %v", err)
-	// }
 
 	if err := client.StartNemesis("noop"); err != nil {
 		t.Fatalf("start nemesis failed %v", err)
@@ -66,8 +63,4 @@ func TestNodeHandler(t *testing.T) {
 	if err := client.StopNemesis("noop", "a", "b", "c"); err != nil {
 		t.Fatalf("stop nemesis failed %v", err)
 	}
-
-	// if err := client.TearDownNemesis("noop"); err != nil {
-	// 	t.Fatalf("tear down nemesis failed %v", err)
-	// }
 }

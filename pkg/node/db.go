@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/siddontang/chaos/pkg/core"
@@ -37,8 +38,10 @@ func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
 	if db == nil {
 		return
 	}
+	node := r.FormValue("node")
+	nodes := strings.Split(r.FormValue("nodes"), ",")
 
-	if err := db.SetUp(h.n.ctx, h.n.nodes, h.n.name); err != nil {
+	if err := db.SetUp(h.n.ctx, nodes, node); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -53,7 +56,9 @@ func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.TearDown(h.n.ctx, h.n.nodes, h.n.name); err != nil {
+	node := r.FormValue("node")
+	nodes := strings.Split(r.FormValue("nodes"), ",")
+	if err := db.TearDown(h.n.ctx, nodes, node); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -68,7 +73,8 @@ func (h *dbHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.Start(h.n.ctx, h.n.name); err != nil {
+	node := r.FormValue("node")	
+	if err := db.Start(h.n.ctx, node); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -83,7 +89,8 @@ func (h *dbHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.Stop(h.n.ctx, h.n.name); err != nil {
+	node := r.FormValue("node")	
+	if err := db.Stop(h.n.ctx, node); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -98,7 +105,8 @@ func (h *dbHandler) Kill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.Kill(h.n.ctx, h.n.name); err != nil {
+	node := r.FormValue("node")
+	if err := db.Kill(h.n.ctx, node); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -113,7 +121,8 @@ func (h *dbHandler) IsRunning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !db.IsRunning(h.n.ctx, h.n.name) {
+	node := r.FormValue("node")
+	if !db.IsRunning(h.n.ctx, node) {
 		h.rd.JSON(w, http.StatusNotFound, fmt.Sprintf("db %s is not running", db.Name()))
 		return
 	}

@@ -112,7 +112,7 @@ func (c *Controller) setUpDB() {
 	c.syncExec(func(i int) {
 		client := c.nodeClients[i]
 		log.Printf("begin to set up database on %s", c.nodes[i])
-		if err := client.SetUpDB(c.cfg.DB); err != nil {
+		if err := client.SetUpDB(c.cfg.DB, c.nodes); err != nil {
 			log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 		}
 	})
@@ -123,7 +123,7 @@ func (c *Controller) tearDownDB() {
 	c.syncExec(func(i int) {
 		client := c.nodeClients[i]
 		log.Printf("being to tear down database on %s", c.nodes[i])
-		if err := client.TearDownDB(c.cfg.DB); err != nil {
+		if err := client.TearDownDB(c.cfg.DB, c.nodes); err != nil {
 			log.Printf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 		}
 	})
