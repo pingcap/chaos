@@ -65,6 +65,7 @@ func (c *Controller) Run() {
 	}
 
 	c.setUpDB()
+	c.setUpClient()
 
 	n := len(c.nodes)
 	var clientWg sync.WaitGroup
@@ -89,43 +90,67 @@ func (c *Controller) Run() {
 	cancel()
 	nemesisWg.Wait()
 
+	c.tearDownClient()
 	c.tearDownDB()
+}
+
+func (c *Controller) syncExec(f func(i int)) {
+	var wg sync.WaitGroup
+	n := len(c.nodes)
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			defer wg.Done()
+			f(i)
+		}(i)
+	}
+	wg.Wait()
 }
 
 func (c *Controller) setUpDB() {
 	log.Printf("begin to set up database")
-	var wg sync.WaitGroup
-	n := len(c.nodes)
-	wg.Add(n)
-	for i := 0; i < n; i++ {
-		go func(i int) {
-			defer wg.Done()
-			client := c.nodeClients[i]
-			log.Printf("begin to set up database on %s", c.nodes[i])
-			if err := client.SetUpDB(c.cfg.DB); err != nil {
-				log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
-			}
-		}(i)
-	}
-	wg.Wait()
+	c.syncExec(func(i int) {
+		client := c.nodeClients[i]
+		log.Printf("begin to set up database on %s", c.nodes[i])
+		if err := client.SetUpDB(c.cfg.DB); err != nil {
+			log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
+		}
+	})
 }
 
 func (c *Controller) tearDownDB() {
 	log.Printf("begin to tear down database")
-	var wg sync.WaitGroup
-	n := len(c.nodes)
-	wg.Add(n)
-	for i := 0; i < n; i++ {
-		go func(i int) {
-			defer wg.Done()
-			client := c.nodeClients[i]
-			log.Printf("being to tear down database on %s", c.nodes[i])
-			if err := client.TearDownDB(c.cfg.DB); err != nil {
-				log.Fatalf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
-			}
-		}(i)
-	}
-	wg.Wait()
+	c.syncExec(func(i int) {
+		client := c.nodeClients[i]
+		log.Printf("being to tear down database on %s", c.nodes[i])
+		if err := client.TearDownDB(c.cfg.DB); err != nil {
+			log.Printf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
+		}
+	})
+}
+
+func (c *Controller) setUpClient() {
+	log.Printf("begin to set up client")
+	c.syncExec(func(i int) {
+		client := c.clients[i]
+		node := c.nodes[i]
+		log.Printf("begin to set up db client for node %s", node)
+		if err := client.SetUp(c.ctx, node); err != nil {
+			log.Fatalf("set up cdb lient for node %s failed %v", node, err)
+		}
+	})
+}
+
+func (c *Controller) tearDownClient() {
+	log.Printf("begin to set up client")
+	c.syncExec(func(i int) {
+		client := c.clients[i]
+		node := c.nodes[i]
+		log.Printf("begin to tear down db client for node %s", node)
+		if err := client.TearDown(c.ctx, node); err != nil {
+			log.Printf("tear down db client for node %s failed %v", node, err)
+		}
+	})
 }
 
 func (c *Controller) onClientLoop(i int) {
@@ -135,18 +160,6 @@ func (c *Controller) onClientLoop(i int) {
 
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
-
-	log.Printf("begin to set up db client for node %s", node)
-	if err := client.SetUp(ctx, node); err != nil {
-		log.Printf("set up cdb lient for node %s failed %v", node, err)
-	}
-
-	defer func() {
-		log.Printf("begin to tear down db client for node %s", node)
-		if err := client.TearDown(c.ctx, node); err != nil {
-			log.Printf("tear down db client for node %s failed %v", node, err)
-		}
-	}()
 
 	for i := 0; i < c.cfg.RequestCount; i++ {
 		request := gen.Generate()
