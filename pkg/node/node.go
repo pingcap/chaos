@@ -14,6 +14,7 @@ const apiPrefix = "/node"
 
 // Node is the Node to let the controller to control the node.
 type Node struct {
+	nodes []string
 	name   string
 	addr   string
 	s      *http.Server
@@ -22,8 +23,9 @@ type Node struct {
 }
 
 // NewNode creates the node with given address
-func NewNode(name string, addr string) *Node {
+func NewNode(nodes []string, name string, addr string) *Node {
 	n := &Node{
+		nodes: nodes,
 		name: name,
 		addr: addr,
 	}

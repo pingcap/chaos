@@ -9,9 +9,9 @@ import (
 // DB is used in node, you should define your own DB and register it.
 type DB interface {
 	// SetUp initializes the database.
-	SetUp(ctx context.Context, node string) error
+	SetUp(ctx context.Context, nodes []string, node string) error
 	// TearDown tears down the database.
-	TearDown(ctx context.Context, node string) error
+	TearDown(ctx context.Context, nodes []string, node string) error
 	// Start starts the database
 	Start(ctx context.Context, node string) error
 	// Stop stops the database
@@ -29,12 +29,12 @@ type NoopDB struct {
 }
 
 // SetUp initializes the database.
-func (NoopDB) SetUp(ctx context.Context, node string) error {
+func (NoopDB) SetUp(ctx context.Context, nodes []string, node string) error {
 	return nil
 }
 
 // TearDown tears down the datase.
-func (NoopDB) TearDown(ctx context.Context, node string) error {
+func (NoopDB) TearDown(ctx context.Context, nodes []string, node string) error {
 	return nil
 }
 
@@ -76,7 +76,7 @@ func RegisterDB(db DB) {
 	dbs[name] = db
 }
 
-// GetDB gets the registered db. 
+// GetDB gets the registered db.
 func GetDB(name string) DB {
 	return dbs[name]
 }

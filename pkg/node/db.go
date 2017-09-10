@@ -38,7 +38,7 @@ func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.SetUp(h.n.ctx, h.n.name); err != nil {
+	if err := db.SetUp(h.n.ctx, h.n.nodes, h.n.name); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -53,7 +53,7 @@ func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.TearDown(h.n.ctx, h.n.name); err != nil {
+	if err := db.TearDown(h.n.ctx, h.n.nodes, h.n.name); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
