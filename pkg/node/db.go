@@ -2,6 +2,7 @@ package node
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -41,7 +42,9 @@ func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
 	node := r.FormValue("node")
 	nodes := strings.Split(r.FormValue("nodes"), ",")
 
+	log.Printf("set up db %s on node %s", db.Name(), node)
 	if err := db.SetUp(h.n.ctx, nodes, node); err != nil {
+		log.Panicf("set up db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -58,7 +61,10 @@ func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
 
 	node := r.FormValue("node")
 	nodes := strings.Split(r.FormValue("nodes"), ",")
+
+	log.Printf("tear down db %s on node %s", db.Name(), node)
 	if err := db.TearDown(h.n.ctx, nodes, node); err != nil {
+		log.Panicf("tear down db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -73,8 +79,10 @@ func (h *dbHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node := r.FormValue("node")	
+	node := r.FormValue("node")
+	log.Printf("start db %s on node %s", db.Name(), node)
 	if err := db.Start(h.n.ctx, node); err != nil {
+		log.Panicf("start db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -89,8 +97,10 @@ func (h *dbHandler) Stop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node := r.FormValue("node")	
+	node := r.FormValue("node")
+	log.Printf("stop db %s on node %s", db.Name(), node)
 	if err := db.Stop(h.n.ctx, node); err != nil {
+		log.Panicf("stop db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -106,7 +116,9 @@ func (h *dbHandler) Kill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	node := r.FormValue("node")
+	log.Printf("kill db %s on node %s", db.Name(), node)
 	if err := db.Kill(h.n.ctx, node); err != nil {
+		log.Panicf("kill db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}

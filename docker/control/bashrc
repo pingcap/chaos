@@ -7,7 +7,10 @@ This container runs the Chaos tests in sub-containers.
 You are currently in the base dir of the git repo for Chaos.
 
 To run a test:
-   cd tikv && go run
+   make
+   ./script/deploy_node.sh
+   ./script/start_node.sh
+   ./bin/chaos-tidb
 EOF
 
 cd /go/src/github.com/siddontang/chaos

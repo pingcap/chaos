@@ -74,7 +74,7 @@ func TestDaemon(t *testing.T) {
 
 	cmd := "/bin/sleep"
 	pidFile := path.Join(tmpDir, "sleep.pid")
-	opts := NewDaemonOptions(tmpDir, pidFile, path.Join(tmpDir, "sleep.log"))
+	opts := NewDaemonOptions(tmpDir, pidFile)
 	err := StartDaemon(context.Background(), opts, cmd, "100")
 	if err != nil {
 		t.Fatalf("start daemon failed %v", err)

@@ -1,7 +1,6 @@
 package control
 
 import (
-	"errors"
 	"time"
 )
 
@@ -17,11 +16,7 @@ type Config struct {
 	RunTime time.Duration
 }
 
-func (c *Config) adjust() error {
-	if len(c.DB) == 0 {
-		return errors.New("empty database")
-	}
-
+func (c *Config) adjust() {
 	if c.RequestCount == 0 {
 		c.RequestCount = 10000
 	}
@@ -29,6 +24,4 @@ func (c *Config) adjust() error {
 	if c.RunTime == 0 {
 		c.RunTime = 10 * time.Minute
 	}
-
-	return nil
 }

@@ -106,16 +106,14 @@ func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 // DaemonOptions is the options to start a command in daemon mode.
 type DaemonOptions struct {
 	ChDir   string
-	LogFile string
 	PidFile string
 }
 
 // NewDaemonOptions returns a default daemon options.
-func NewDaemonOptions(chDir string, pidFile string, logFile string) DaemonOptions {
+func NewDaemonOptions(chDir string, pidFile string) DaemonOptions {
 	return DaemonOptions{
 		ChDir:   chDir,
 		PidFile: pidFile,
-		LogFile: logFile,
 	}
 }
 
@@ -136,13 +134,6 @@ func StartDaemon(ctx context.Context, opts DaemonOptions, cmd string, cmdArgs ..
 	args = append(args, cmdArgs...)
 
 	c := exec.CommandContext(ctx, "start-stop-daemon", args...)
-	logFile, err := os.Create(opts.LogFile)
-	if err != nil {
-		return err
-	}
-	defer logFile.Close()
-	c.Stdout = logFile
-	c.Stderr = logFile
 
 	return c.Run()
 }

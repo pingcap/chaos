@@ -24,11 +24,13 @@ type RequestGenerator interface {
 // You should define your own client for your database.
 type Client interface {
 	// SetUp sets up the client.
-	SetUp(ctx context.Context, node string) error
+	SetUp(ctx context.Context, nodes []string, node string) error
 	// TearDown tears down the client.
-	TearDown(ctx context.Context, node string) error
+	TearDown(ctx context.Context, nodes []string, node string) error
 	// Invoke invokes a request to the database.
 	Invoke(ctx context.Context, node string, r Request) (Response, error)
+	// NextRequest generates a request for latter Invoke.
+	NextRequest() Request
 }
 
 // ClientCreator creates a client.
@@ -36,8 +38,6 @@ type Client interface {
 type ClientCreator interface {
 	// Create creates the client.
 	Create(node string) Client
-	// CreateRequestGenerator creates the request generator.
-	CreateRequestGenerator() RequestGenerator
 }
 
 // NoopClientCreator creates a noop client.
@@ -49,24 +49,24 @@ func (NoopClientCreator) Create(node string) Client {
 	return noopClient{}
 }
 
-// CreateRequestGenerator creates the request generator.
-func (NoopClientCreator) CreateRequestGenerator() RequestGenerator {
-	return noopRequestGenerator{}
-}
-
 // noopClient is a noop client
 type noopClient struct {
 }
 
 // SetUp sets up the client.
-func (noopClient) SetUp(ctx context.Context, node string) error { return nil }
+func (noopClient) SetUp(ctx context.Context, nodes []string, node string) error { return nil }
 
 // TearDown tears down the client.
-func (noopClient) TearDown(ctx context.Context, node string) error { return nil }
+func (noopClient) TearDown(ctx context.Context, nodes []string, node string) error { return nil }
 
 // Invoke invokes a request to the database.
 func (noopClient) Invoke(ctx context.Context, node string, r Request) (Response, error) {
 	return noopResponse{}, nil
+}
+
+// NextRequest generates a request for latter Invoke.
+func (noopClient) NextRequest() Request {
+	return noopRequest{}
 }
 
 type noopRequest struct{}
@@ -79,13 +79,4 @@ type noopResponse struct{}
 
 func (noopResponse) String() string {
 	return "ok"
-}
-
-// noopRequestGenerator generates noop request.
-type noopRequestGenerator struct {
-}
-
-// Generate implementes Generate interface.
-func (noopRequestGenerator) Generate() Request {
-	return noopRequest{}
 }

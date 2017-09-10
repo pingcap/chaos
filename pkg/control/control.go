@@ -20,8 +20,7 @@ type Controller struct {
 	nodes       []string
 	nodeClients []*node.Client
 
-	clients          []core.Client
-	requestGenerator []core.RequestGenerator
+	clients []core.Client
 
 	nemesisGenerators []core.NemesisGenerator
 
@@ -31,8 +30,10 @@ type Controller struct {
 
 // NewController creates a controller.
 func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerators []core.NemesisGenerator) *Controller {
-	if err := cfg.adjust(); err != nil {
-		log.Fatalf("invalid config %v", err)
+	cfg.adjust()
+
+	if len(cfg.DB) == 0 {
+		log.Fatalf("empty database")
 	}
 
 	c := new(Controller)
@@ -47,7 +48,6 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 		client := node.NewClient(name, fmt.Sprintf("%s:%d", name, cfg.NodePort))
 		c.nodeClients = append(c.nodeClients, client)
 		c.clients = append(c.clients, clientCreator.Create(name))
-		c.requestGenerator = append(c.requestGenerator, clientCreator.CreateRequestGenerator())
 	}
 
 	return c
@@ -60,10 +60,6 @@ func (c *Controller) Close() {
 
 // Run runs the controller.
 func (c *Controller) Run() {
-	if len(c.requestGenerator) == 0 {
-		log.Fatal("must add a request generator")
-	}
-
 	c.setUpDB()
 	c.setUpClient()
 
@@ -135,8 +131,8 @@ func (c *Controller) setUpClient() {
 		client := c.clients[i]
 		node := c.nodes[i]
 		log.Printf("begin to set up db client for node %s", node)
-		if err := client.SetUp(c.ctx, node); err != nil {
-			log.Fatalf("set up cdb lient for node %s failed %v", node, err)
+		if err := client.SetUp(c.ctx, c.nodes, node); err != nil {
+			log.Fatalf("set up db client for node %s failed %v", node, err)
 		}
 	})
 }
@@ -147,7 +143,7 @@ func (c *Controller) tearDownClient() {
 		client := c.clients[i]
 		node := c.nodes[i]
 		log.Printf("begin to tear down db client for node %s", node)
-		if err := client.TearDown(c.ctx, node); err != nil {
+		if err := client.TearDown(c.ctx, c.nodes, node); err != nil {
 			log.Printf("tear down db client for node %s failed %v", node, err)
 		}
 	})
@@ -155,19 +151,24 @@ func (c *Controller) tearDownClient() {
 
 func (c *Controller) onClientLoop(i int) {
 	client := c.clients[i]
-	gen := c.requestGenerator[i]
 	node := c.nodes[i]
 
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
 
 	for i := 0; i < c.cfg.RequestCount; i++ {
-		request := gen.Generate()
+		request := client.NextRequest()
 
 		// TODO: add to history
 		_, err := client.Invoke(ctx, node, request)
 		if err != nil {
 			log.Printf("invoke db client for node %s failed %v", node, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
 		}
 	}
 }
