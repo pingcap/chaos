@@ -95,14 +95,20 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		fmt.Sprintf("--log-file=%s", pdLog),
 		fmt.Sprintf("--config=%s", pdConfig),
 	}
+	
 	log.Printf("start pd-server on node %s", node)
-	opts := util.NewDaemonOptions(deployDir, path.Join(deployDir, "pd.pid"))
+	pdPID := path.Join(deployDir, "pd.pid")
+	opts := util.NewDaemonOptions(deployDir, pdPID)
 	if err := util.StartDaemon(ctx, opts, pdBinary, pdArgs...); err != nil {
 		return err
 	}
 
 	if inSetUp {
 		time.Sleep(5 * time.Second)
+	}
+
+	if !util.IsDaemonRunning(ctx, pdBinary, pdPID) {
+		return fmt.Errorf("fail to start pd on node %s", node)
 	}
 
 	pdEndpoints := make([]string, len(db.nodes))
@@ -120,13 +126,18 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 	}
 
 	log.Printf("start tikv-server on node %s", node)
-	opts = util.NewDaemonOptions(deployDir, path.Join(deployDir, "tikv.pid"))
+	tikvPID := path.Join(deployDir, "tikv.pid")
+	opts = util.NewDaemonOptions(deployDir, tikvPID)
 	if err := util.StartDaemon(ctx, opts, tikvBinary, tikvArgs...); err != nil {
 		return err
 	}
 
 	if inSetUp {
 		time.Sleep(30 * time.Second)
+	}
+
+	if !util.IsDaemonRunning(ctx, tikvBinary, tikvPID) {
+		return fmt.Errorf("fail to start tikv on node %s", node)
 	}
 
 	tidbArgs := []string{
@@ -136,13 +147,18 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 	}
 
 	log.Printf("start tidb-erver on node %s", node)
-	opts = util.NewDaemonOptions(deployDir, path.Join(deployDir, "tidb.pid"))
+	tidbPID := path.Join(deployDir, "tidb.pid")
+	opts = util.NewDaemonOptions(deployDir, tidbPID)
 	if err := util.StartDaemon(ctx, opts, tidbBinary, tidbArgs...); err != nil {
 		return err
 	}
 
 	if inSetUp {
 		time.Sleep(30 * time.Second)
+	}
+
+	if !util.IsDaemonRunning(ctx, tidbBinary, tidbPID) {
+		return fmt.Errorf("fail to start tidb on node %s", node)
 	}
 
 	return nil
