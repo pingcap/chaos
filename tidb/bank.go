@@ -5,7 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"time"
+
+	"github.com/anishathalye/porcupine"
 
 	// use mysql
 	_ "github.com/go-sql-driver/mysql"
@@ -106,23 +109,75 @@ func (c *bankClient) NextRequest() core.Request {
 	return r
 }
 
-// TODO: now we just support nothing for request and response,
-// but we will re-consider after we begin to implement linearizability check.
 type bankRequest struct {
+	// 0: read
+	// 1: transfer
+	op     int
 	from   int
 	to     int
 	amount int
 }
 
 type bankResponse struct {
+	// read result
+	balances []int64
+	// transfer ok or not
+	ok bool
+	// read/transfer unknown
+	unknown bool
+}
+
+func newBankEvent(v interface{}, id uint) porcupine.Event {
+	if _, ok := v.(bankRequest); ok {
+		return porcupine.Event{Kind: porcupine.CallEvent, Value: v, Id: id}
+	}
+
+	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
+}
+
+func getBankModel(n int) porcupine.Model {
+	return porcupine.Model{
+		Init: func() interface{} {
+			v := make([]int64, n)
+			for i := 0; i < n; i++ {
+				v[i] = 1000
+			}
+			return v
+		},
+		Step: func(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+			st := state.([]int64)
+			inp := input.(bankRequest)
+			out := output.(bankResponse)
+
+			if inp.op == 0 {
+				// read
+				ok := out.unknown || reflect.DeepEqual(st, out.balances)
+				return ok, state
+			}
+
+			// for transfer
+			newSt := append([]int64{}, st...)
+			newSt[inp.from] -= int64(inp.amount)
+			newSt[inp.to] += int64(inp.amount)
+			return out.ok || out.unknown, newSt
+		},
+		
+		Equal: func(state1, state2 interface{}) bool {
+			return reflect.DeepEqual(state1, state2)
+		},
+	}
 }
 
 func (r bankRequest) String() string {
-	return fmt.Sprintf("%d %d %d", r.from, r.to, r.amount)
+	if r.op == 0 {
+		return "read"
+	}
+
+	return fmt.Sprintf("transfer %d %d %d", r.from, r.to, r.amount)
 }
 
 func (r bankResponse) String() string {
-	return "ok"
+	return fmt.Sprintf("%v %v", r.balances, r.ok)
 }
 
 // BankClientCreator creates a bank test client for tidb.
