@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"sync"
 
 	"github.com/anishathalye/porcupine"
 )
@@ -16,18 +17,19 @@ const (
 
 type operation struct {
 	Action string          `json:"action"`
-	Proc   int             `json:"proc"`
+	Proc   int64           `json:"proc"`
 	Data   json.RawMessage `json:"data"`
 }
 
 // Recorder records operation histogry.
 type Recorder struct {
+	sync.Mutex
 	f *os.File
 }
 
 // NewRecorder creates a recorder to log the history to the file.
 func NewRecorder(name string) (*Recorder, error) {
-	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return nil, err
 	}
@@ -41,16 +43,16 @@ func (r *Recorder) Close() {
 }
 
 // RecordRequest records the request.
-func (r *Recorder) RecordRequest(proc int, op interface{}) error {
+func (r *Recorder) RecordRequest(proc int64, op interface{}) error {
 	return r.record(proc, InvokeOperation, op)
 }
 
 // RecordResponse records the response.
-func (r *Recorder) RecordResponse(proc int, op interface{}) error {
+func (r *Recorder) RecordResponse(proc int64, op interface{}) error {
 	return r.record(proc, ReturnOperation, op)
 }
 
-func (r *Recorder) record(proc int, action string, op interface{}) error {
+func (r *Recorder) record(proc int64, action string, op interface{}) error {
 	data, err := json.Marshal(op)
 	if err != nil {
 		return err
@@ -66,6 +68,9 @@ func (r *Recorder) record(proc int, action string, op interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	r.Lock()
+	defer r.Unlock()
 
 	if _, err = r.f.Write(data); err != nil {
 		return err
@@ -91,6 +96,11 @@ type RecordParser interface {
 	OnNoopResponse() interface{}
 }
 
+// Verifier verifies the history.
+type Verifier interface {
+	Verify(name string) (bool, error)
+}
+
 // VerifyHistory checks the history file with model.
 // False means the history is not linearizable.
 func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error) {
@@ -100,7 +110,7 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 	}
 	defer f.Close()
 
-	procID := map[int]uint{}
+	procID := map[int64]uint{}
 	id := uint(0)
 
 	events := make([]porcupine.Event, 0, 1024)

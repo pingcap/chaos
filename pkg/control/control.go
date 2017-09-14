@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/siddontang/chaos/pkg/core"
+	"github.com/siddontang/chaos/pkg/history"
 	"github.com/siddontang/chaos/pkg/node"
 )
 
@@ -26,6 +28,10 @@ type Controller struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	proc int64
+
+	recorder *history.Recorder
 }
 
 // NewController creates a controller.
@@ -36,10 +42,15 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 		log.Fatalf("empty database")
 	}
 
+	r, err := history.NewRecorder(cfg.History)
+	if err != nil {
+		log.Fatalf("prepare history failed %v", err)
+	}
+
 	c := new(Controller)
 	c.cfg = cfg
 	c.ctx, c.cancel = context.WithCancel(context.Background())
-
+	c.recorder = r
 	c.nemesisGenerators = nemesisGenerators
 
 	for i := 1; i <= 5; i++ {
@@ -56,6 +67,7 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 // Close closes the controller.
 func (c *Controller) Close() {
 	c.cancel()
+	c.recorder.Close()
 }
 
 // Run runs the controller.
@@ -156,12 +168,25 @@ func (c *Controller) onClientLoop(i int) {
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
 
+	procID := atomic.AddInt64(&c.proc, 1)
 	for i := 0; i < c.cfg.RequestCount; i++ {
 		request := client.NextRequest()
 
+		if err := c.recorder.RecordRequest(procID, request); err != nil {
+			log.Printf("record request %v failed %v", request, err)
+		}
+
 		// TODO: add to history
-		_ := client.Invoke(ctx, node, request)
-		
+		response := client.Invoke(ctx, node, request)
+
+		if err := c.recorder.RecordResponse(procID, response); err != nil {
+			log.Printf("record response %v failed %v", response, err)
+		}
+
+		if client.IsUnknownResponse(response) {
+			procID = atomic.AddInt64(&c.proc, 1)
+		}
+
 		select {
 		case <-ctx.Done():
 			return

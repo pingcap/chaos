@@ -14,6 +14,9 @@ type Config struct {
 	RequestCount int
 	// RunTime controls how long the controller takes.
 	RunTime time.Duration
+
+	// History file
+	History string 
 }
 
 func (c *Config) adjust() {

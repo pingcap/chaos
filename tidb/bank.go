@@ -3,6 +3,7 @@ package tidb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -13,6 +14,7 @@ import (
 	// use mysql
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/siddontang/chaos/pkg/core"
+	"github.com/siddontang/chaos/pkg/history"
 )
 
 type bankClient struct {
@@ -203,6 +205,28 @@ func getBankModel(n int) porcupine.Model {
 	}
 }
 
+type bankParser struct {
+}
+
+func (p bankParser) OnRequest(data json.RawMessage) (interface{}, error) {
+	r := bankRequest{}
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+func (p bankParser) OnResponse(data json.RawMessage) (interface{}, error) {
+	r := bankResponse{}
+	err := json.Unmarshal(data, &r)
+	if r.Unknown {
+		return nil, err
+	}
+	return r, err
+}
+
+func (p bankParser) OnNoopResponse() interface{} {
+	return bankResponse{Unknown: true}
+}
+
 // BankClientCreator creates a bank test client for tidb.
 type BankClientCreator struct {
 }
@@ -212,4 +236,13 @@ func (BankClientCreator) Create(node string) core.Client {
 	return &bankClient{
 		accountNum: 5,
 	}
+}
+
+// BankVerifier verifies the bank history.
+type BankVerifier struct {
+}
+
+// Verify verifies the bank history.
+func (BankVerifier) Verify(name string) (bool, error) {
+	return history.VerifyHistory(name, getBankModel(5), bankParser{})
 }
