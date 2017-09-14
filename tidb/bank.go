@@ -57,74 +57,109 @@ func (c *bankClient) TearDown(ctx context.Context, nodes []string, node string) 
 	return c.db.Close()
 }
 
-func (c *bankClient) Invoke(ctx context.Context, node string, r core.Request) (core.Response, error) {
-	arg := r.(bankRequest)
-	txn, err := c.db.Begin()
+func (c *bankClient) invokeRead(ctx context.Context, r bankRequest) bankResponse {
+	rows, err := c.db.QueryContext(ctx, "select balance from accounts")
 	if err != nil {
-		return nil, err
+		return bankResponse{Unknown: true}
+	}
+	defer rows.Close()
+
+	balances := make([]int64, 0, c.accountNum)
+	for rows.Next() {
+		var v int64
+		if err = rows.Scan(&v); err != nil {
+			return bankResponse{Unknown: true}
+		}
+		balances = append(balances, v)
+	}
+
+	return bankResponse{Balances: balances}
+}
+
+func (c *bankClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
+	arg := r.(bankRequest)
+	if arg.Op == 0 {
+		return c.invokeRead(ctx, arg)
+	}
+
+	txn, err := c.db.Begin()
+
+	if err != nil {
+		return bankResponse{Ok: false}
 	}
 	defer txn.Rollback()
 
 	var (
-		fromBalance int
-		toBalance   int
+		fromBalance int64
+		toBalance   int64
 	)
-	if err = txn.QueryRowContext(ctx, "select balance from accounts where id = ? for update", arg.from).Scan(&fromBalance); err != nil {
-		return nil, err
+	if err = txn.QueryRowContext(ctx, "select balance from accounts where id = ? for update", arg.From).Scan(&fromBalance); err != nil {
+		return bankResponse{Ok: false}
 	}
 
-	if err = txn.QueryRowContext(ctx, "select balance from accounts where id = ? for update", arg.to).Scan(&toBalance); err != nil {
-		return nil, err
+	if err = txn.QueryRowContext(ctx, "select balance from accounts where id = ? for update", arg.To).Scan(&toBalance); err != nil {
+		return bankResponse{Ok: false}
 	}
 
-	if fromBalance < arg.amount {
-		return bankResponse{}, nil
+	if fromBalance < arg.Amount {
+		return bankResponse{Ok: false}
 	}
 
-	if _, err = txn.ExecContext(ctx, "update accounts set balance = balance - ? where id = ?", arg.amount, arg.from); err != nil {
-		return nil, err
+	if _, err = txn.ExecContext(ctx, "update accounts set balance = balance - ? where id = ?", arg.Amount, arg.From); err != nil {
+		return bankResponse{Ok: false}
 	}
 
-	if _, err = txn.ExecContext(ctx, "update accounts set balance = balance + ? where id = ?", arg.amount, arg.to); err != nil {
-		return nil, err
+	if _, err = txn.ExecContext(ctx, "update accounts set balance = balance + ? where id = ?", arg.Amount, arg.To); err != nil {
+		return bankResponse{Ok: false}
 	}
 
 	if err = txn.Commit(); err != nil {
-		return nil, err
+		return bankResponse{Unknown: true}
 	}
 
-	return bankResponse{}, nil
+	return bankResponse{Ok: true}
 }
 
-func (c *bankClient) NextRequest() core.Request {
-	var r bankRequest
-	r.from = c.r.Intn(c.accountNum)
-
-	r.to = c.r.Intn(c.accountNum)
-	if r.from == r.to {
-		r.to = (r.to + 1) % c.accountNum
+func (c *bankClient) NextRequest() interface{} {
+	r := bankRequest{
+		Op: c.r.Int() % 2,
+	}
+	if r.Op == 0 {
+		return r
 	}
 
-	r.amount = 5
+	r.From = c.r.Intn(c.accountNum)
+
+	r.To = c.r.Intn(c.accountNum)
+	if r.From == r.To {
+		r.To = (r.To + 1) % c.accountNum
+	}
+
+	r.Amount = 5
 	return r
+}
+
+func (bankClient) IsUnknownResponse(r interface{}) bool {
+	resp, ok := r.(bankResponse)
+	return ok && resp.Unknown
 }
 
 type bankRequest struct {
 	// 0: read
 	// 1: transfer
-	op     int
-	from   int
-	to     int
-	amount int
+	Op     int
+	From   int
+	To     int
+	Amount int64
 }
 
 type bankResponse struct {
 	// read result
-	balances []int64
+	Balances []int64
 	// transfer ok or not
-	ok bool
+	Ok bool
 	// read/transfer unknown
-	unknown bool
+	Unknown bool
 }
 
 func newBankEvent(v interface{}, id uint) porcupine.Event {
@@ -149,35 +184,23 @@ func getBankModel(n int) porcupine.Model {
 			inp := input.(bankRequest)
 			out := output.(bankResponse)
 
-			if inp.op == 0 {
+			if inp.Op == 0 {
 				// read
-				ok := out.unknown || reflect.DeepEqual(st, out.balances)
+				ok := out.Unknown || reflect.DeepEqual(st, out.Balances)
 				return ok, state
 			}
 
 			// for transfer
 			newSt := append([]int64{}, st...)
-			newSt[inp.from] -= int64(inp.amount)
-			newSt[inp.to] += int64(inp.amount)
-			return out.ok || out.unknown, newSt
+			newSt[inp.From] -= inp.Amount
+			newSt[inp.To] += inp.Amount
+			return out.Ok || out.Unknown, newSt
 		},
-		
+
 		Equal: func(state1, state2 interface{}) bool {
 			return reflect.DeepEqual(state1, state2)
 		},
 	}
-}
-
-func (r bankRequest) String() string {
-	if r.op == 0 {
-		return "read"
-	}
-
-	return fmt.Sprintf("transfer %d %d %d", r.from, r.to, r.amount)
-}
-
-func (r bankResponse) String() string {
-	return fmt.Sprintf("%v %v", r.balances, r.ok)
 }
 
 // BankClientCreator creates a bank test client for tidb.

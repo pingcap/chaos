@@ -4,19 +4,9 @@ import (
 	"context"
 )
 
-// Request is the request passed to client Invoke.
-type Request interface {
-	String() string
-}
-
-// Response is the response the client Invoke returns.
-type Response interface {
-	String() string
-}
-
 // RequestGenerator generates a request.
 type RequestGenerator interface {
-	Generate() Request
+	Generate() interface{}
 }
 
 // Client applies the request to the database.
@@ -28,9 +18,11 @@ type Client interface {
 	// TearDown tears down the client.
 	TearDown(ctx context.Context, nodes []string, node string) error
 	// Invoke invokes a request to the database.
-	Invoke(ctx context.Context, node string, r Request) (Response, error)
+	Invoke(ctx context.Context, node string, r interface{}) interface{}
 	// NextRequest generates a request for latter Invoke.
-	NextRequest() Request
+	NextRequest() interface{}
+	// IsInfiniteResponse checks whether the response is unknown or not.
+	IsUnknownResponse(interface{}) bool
 }
 
 // ClientCreator creates a client.
@@ -60,23 +52,16 @@ func (noopClient) SetUp(ctx context.Context, nodes []string, node string) error 
 func (noopClient) TearDown(ctx context.Context, nodes []string, node string) error { return nil }
 
 // Invoke invokes a request to the database.
-func (noopClient) Invoke(ctx context.Context, node string, r Request) (Response, error) {
-	return noopResponse{}, nil
+func (noopClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
+	return 0
 }
 
 // NextRequest generates a request for latter Invoke.
-func (noopClient) NextRequest() Request {
-	return noopRequest{}
+func (noopClient) NextRequest() interface{} {
+	return 1
 }
 
-type noopRequest struct{}
-
-func (noopRequest) String() string {
-	return "ok"
-}
-
-type noopResponse struct{}
-
-func (noopResponse) String() string {
-	return "ok"
+// IsInfiniteResponse checks whether the response is unknown or not.
+func (noopClient) IsUnknownResponse(interface{}) bool {
+	return false
 }

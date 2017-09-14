@@ -160,11 +160,8 @@ func (c *Controller) onClientLoop(i int) {
 		request := client.NextRequest()
 
 		// TODO: add to history
-		_, err := client.Invoke(ctx, node, request)
-		if err != nil {
-			log.Printf("invoke db client for node %s failed %v", node, err)
-		}
-
+		_ := client.Invoke(ctx, node, request)
+		
 		select {
 		case <-ctx.Done():
 			return
