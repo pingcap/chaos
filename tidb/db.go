@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"time"
@@ -39,6 +40,11 @@ type db struct {
 
 // SetUp initializes the database.
 func (db *db) SetUp(ctx context.Context, nodes []string, node string) error {
+	// Try kill all old servers
+	exec.CommandContext(ctx, "killall", "-9", "tidb-server").Run()
+	exec.CommandContext(ctx, "killall", "-9", "tikv-server").Run()
+	exec.CommandContext(ctx, "killall", "-9", "pd-server").Run()
+
 	db.nodes = nodes
 
 	if err := util.InstallArchive(ctx, archiveURL, deployDir); err != nil {
@@ -95,7 +101,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		fmt.Sprintf("--log-file=%s", pdLog),
 		fmt.Sprintf("--config=%s", pdConfig),
 	}
-	
+
 	log.Printf("start pd-server on node %s", node)
 	pdPID := path.Join(deployDir, "pd.pid")
 	opts := util.NewDaemonOptions(deployDir, pdPID)
