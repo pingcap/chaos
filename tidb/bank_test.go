@@ -46,6 +46,23 @@ func TestBankVerifyUnknown(t *testing.T) {
 	}
 }
 
+func TestBankVerifyWriteNotOk(t *testing.T) {
+	m := getBankModel(2)
+
+	events := []porcupine.Event{
+		newBankEvent(bankRequest{Op: 0}, 1),
+		newBankEvent(bankResponse{Balances: []int64{1000, 1000}}, 1),
+		newBankEvent(bankRequest{Op: 1, From: 0, To: 1, Amount: 500}, 2),
+		newBankEvent(bankResponse{Ok: false}, 2),
+
+		newBankEvent(bankRequest{Op: 0}, 3),
+		newBankEvent(bankResponse{Balances: []int64{1000, 1000}}, 3),
+	}
+
+	if !porcupine.CheckEvents(m, events) {
+		t.Fatal("must be linearizable")
+	}
+}
 func TestBankVerifyNoLinerizable(t *testing.T) {
 	m := getBankModel(2)
 

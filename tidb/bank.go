@@ -193,6 +193,10 @@ func getBankModel(n int) porcupine.Model {
 			}
 
 			// for transfer
+			if !out.Ok && !out.Unknown {
+				return true, state
+			}
+
 			newSt := append([]int64{}, st...)
 			newSt[inp.From] -= inp.Amount
 			newSt[inp.To] += inp.Amount
