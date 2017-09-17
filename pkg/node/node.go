@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,6 +19,8 @@ type Node struct {
 	s      *http.Server
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	nemesisLock sync.Mutex
 }
 
 // NewNode creates the node with given address
@@ -74,8 +77,7 @@ func (n *Node) createRouter() *mux.Router {
 	nemesisHandler := newNemesisHandler(n, rd)
 	// router.HandleFunc("/nemesis/{name}/setup", nemesisHandler.SetUp).Methods("POST")
 	// router.HandleFunc("/nemesis/{name}/teardown", nemesisHandler.TearDown).Methods("POST")
-	router.HandleFunc("/nemesis/{name}/start", nemesisHandler.Start).Methods("POST")
-	router.HandleFunc("/nemesis/{name}/stop", nemesisHandler.Stop).Methods("POST")
+	router.HandleFunc("/nemesis/{name}/run", nemesisHandler.Run).Methods("POST")
 
 	dbHandler := newDBHanlder(n, rd)
 	router.HandleFunc("/db/{name}/setup", dbHandler.SetUp).Methods("POST")

@@ -5,12 +5,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/siddontang/chaos/pkg/control"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
+	"github.com/siddontang/chaos/pkg/nemesis"
 	"github.com/siddontang/chaos/tidb"
 )
 
@@ -20,6 +22,7 @@ var (
 	runTime      = flag.Duration("run-time", 10*time.Minute, "client test run time")
 	clientCase   = flag.String("case", "bank", "client test case, like bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
+	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
 )
 
 func main() {
@@ -34,8 +37,9 @@ func main() {
 	}
 
 	var (
-		creator  core.ClientCreator
-		verifier history.Verifier
+		creator     core.ClientCreator
+		verifier    history.Verifier
+		nemesisGens []core.NemesisGenerator
 	)
 
 	switch *clientCase {
@@ -46,7 +50,21 @@ func main() {
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
 
-	c := control.NewController(cfg, creator, nil)
+	for _, name := range strings.Split(*nemesises, ",") {
+		var g core.NemesisGenerator
+		switch name {
+		case "random_kill":
+			g = nemesis.NewRandomKillGenerator("tidb")
+		case "all_kill":
+			g = nemesis.NewAllKillGenerator("tidb")
+		default:
+			log.Fatalf("invalid nemesis generator")
+		}
+
+		nemesisGens = append(nemesisGens, g)
+	}
+
+	c := control.NewController(cfg, creator, nemesisGens)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

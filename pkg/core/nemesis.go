@@ -14,10 +14,10 @@ type Nemesis interface {
 	// // TearDown tears down the nemesis
 	// TearDown(ctx context.Context, node string) error
 
-	// Start starts the nemesis
-	Start(ctx context.Context, node string, args ...string) error
-	// Stop stops the nemesis
-	Stop(ctx context.Context, node string, args ...string) error
+	// Invoke executes the nemesis
+	Invoke(ctx context.Context, node string, args ...string) error
+	// Recover recovers the nemesis
+	Recover(ctx context.Context, node string, args ...string) error
 	// Name returns the unique name for the nemesis
 	Name() string
 }
@@ -36,13 +36,13 @@ type NoopNemesis struct {
 // 	return nil
 // }
 
-// Start starts the nemesis
-func (NoopNemesis) Start(ctx context.Context, node string, args ...string) error {
+// Invoke executes the nemesis
+func (NoopNemesis) Invoke(ctx context.Context, node string, args ...string) error {
 	return nil
 }
 
-// Stop stops the nemesis
-func (NoopNemesis) Stop(ctx context.Context, node string, args ...string) error {
+// Recover recovers the nemesis
+func (NoopNemesis) Recover(ctx context.Context, node string, args ...string) error {
 	return nil
 }
 
@@ -73,13 +73,10 @@ func GetNemesis(name string) Nemesis {
 type NemesisOperation struct {
 	// Nemesis name
 	Name string
-	// Nemesis start args
-	StartArgs []string
-	// Nemesis stop args
-	StopArgs []string
-	// The wait time after the contorl starts the nemesis.
-	// Then the control will stop the nemesis.
-	WaitTime time.Duration
+	// Nemesis args
+	Args []string
+	// Nemesis execute time
+	RunTime time.Duration
 }
 
 // NemesisGenerator is used in control, it will generate a nemesis operation
@@ -87,18 +84,8 @@ type NemesisOperation struct {
 type NemesisGenerator interface {
 	// Generate generates the nemesis operation for all nodes.
 	// Every node will be assigned a nemesis operation.
-	Generate(nodes []string) []NemesisOperation
+	Generate(nodes []string) []*NemesisOperation
 	Name() string
-}
-
-// NewNoopNemesisOperation creates a noop nemesis operation.
-func NewNoopNemesisOperation() NemesisOperation {
-	return NemesisOperation{
-		Name:      "noop",
-		StartArgs: nil,
-		StopArgs:  nil,
-		WaitTime:  0,
-	}
 }
 
 // NoopNemesisGenerator generates
@@ -111,10 +98,14 @@ func (NoopNemesisGenerator) Name() string {
 }
 
 //Generate generates the nemesis operation for the nodes.
-func (NoopNemesisGenerator) Generate(nodes []string) []NemesisOperation {
-	ops := make([]NemesisOperation, len(nodes))
+func (NoopNemesisGenerator) Generate(nodes []string) []*NemesisOperation {
+	ops := make([]*NemesisOperation, len(nodes))
 	for i := 0; i < len(ops); i++ {
-		ops[i] = NewNoopNemesisOperation()
+		ops[i] = &NemesisOperation{
+			Name:    "noop",
+			Args:    nil,
+			RunTime: 0,
+		}
 	}
 	return ops
 }

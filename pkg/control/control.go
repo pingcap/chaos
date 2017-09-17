@@ -6,7 +6,6 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
@@ -221,24 +220,18 @@ LOOP:
 	log.Printf("stop to run nemesis")
 }
 
-func (c *Controller) onNemesisLoop(ctx context.Context, index int, op core.NemesisOperation, wg *sync.WaitGroup) {
+func (c *Controller) onNemesisLoop(ctx context.Context, index int, op *core.NemesisOperation, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	if op == nil {
+		return
+	}
 
 	nodeClient := c.nodeClients[index]
 	node := c.nodes[index]
 
-	log.Printf("start nemesis %s with %v on %s", op.Name, op.StartArgs, node)
-	if err := nodeClient.StartNemesis(op.Name, op.StartArgs...); err != nil {
-		log.Printf("start nemesis %s with %v on %s failed: %v", op.Name, op.StartArgs, node, err)
-	}
-
-	select {
-	case <-time.After(op.WaitTime):
-	case <-ctx.Done():
-	}
-
-	log.Printf("stop nemesis %s with %v on %s", op.Name, op.StartArgs, node)
-	if err := nodeClient.StopNemesis(op.Name, op.StopArgs...); err != nil {
-		log.Printf("stop nemesis %s with %v on %s failed: %v", op.Name, op.StopArgs, node, err)
+	log.Printf("run nemesis %s with %v on %s", op.Name, op.Args, node)
+	if err := nodeClient.RunNemesis(op.Name, op.RunTime, op.Args...); err != nil {
+		log.Printf("run nemesis %s with %v on %s failed: %v", op.Name, op.Args, node, err)
 	}
 }

@@ -1,9 +1,11 @@
 package node
 
 import (
-	"strings"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/siddontang/chaos/pkg/core"
@@ -32,35 +34,35 @@ func (h *nemesisHandler) getNemesis(w http.ResponseWriter, vars map[string]strin
 	return nemesis
 }
 
-func (h *nemesisHandler) Start(w http.ResponseWriter, r *http.Request) {
+func (h *nemesisHandler) Run(w http.ResponseWriter, r *http.Request) {
+	h.n.nemesisLock.Lock()
+	defer h.n.nemesisLock.Unlock()
+
 	vars := mux.Vars(r)
 	nemesis := h.getNemesis(w, vars)
 	if nemesis == nil {
 		return
 	}
 
-	node := r.FormValue("node")	
+	node := r.FormValue("node")
 	args := strings.Split(r.FormValue("args"), ",")
-	if err := nemesis.Start(h.n.ctx, node, args...); err != nil {
+	runTime, _ := time.ParseDuration(r.FormValue("dur"))
+	if runTime == 0 {
+		runTime = 10 * time.Second
+	}
+
+	log.Printf("invoke nemesis %s with %v on node %s", nemesis.Name(), args, node)
+
+	defer nemesis.Recover(h.n.ctx, node)
+
+	if err := nemesis.Invoke(h.n.ctx, node, args...); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	h.rd.JSON(w, http.StatusOK, nil)
-}
-
-func (h *nemesisHandler) Stop(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	nemesis := h.getNemesis(w, vars)
-	if nemesis == nil {
-		return
-	}
-
-	node := r.FormValue("node")	
-	args := strings.Split(r.FormValue("args"), ",")
-	if err := nemesis.Stop(h.n.ctx, node, args...); err != nil {
-		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
-		return
+	select {
+	case <-h.n.ctx.Done():
+	case <-time.After(runTime):
 	}
 
 	h.rd.JSON(w, http.StatusOK, nil)

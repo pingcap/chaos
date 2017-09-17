@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Client is used to communicate with the node server
@@ -94,20 +95,11 @@ func (c *Client) IsDBRunning(name string) bool {
 	return c.doPost(fmt.Sprintf("/db/%s/is_running", name), nil, nil) == nil
 }
 
-// StartNemesis starts nemesis
-func (c *Client) StartNemesis(name string, args ...string) error {
+// RunNemesis runs nemesis
+func (c *Client) RunNemesis(name string, runTime time.Duration, args ...string) error {
 	v := url.Values{}
-	suffix := fmt.Sprintf("/nemesis/%s/start", name)
-	if len(args) > 0 {
-		v.Set("args", strings.Join(args, ","))
-	}
-	return c.doPost(suffix, v, nil)
-}
-
-// StopNemesis stops nemesis
-func (c *Client) StopNemesis(name string, args ...string) error {
-	v := url.Values{}
-	suffix := fmt.Sprintf("/nemesis/%s/stop", name)
+	suffix := fmt.Sprintf("/nemesis/%s/run", name)
+	v.Set("dur", runTime.String())
 	if len(args) > 0 {
 		v.Set("args", strings.Join(args, ","))
 	}

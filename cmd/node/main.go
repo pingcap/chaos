@@ -10,6 +10,9 @@ import (
 
 	"github.com/siddontang/chaos/pkg/node"
 
+	// register nemesis
+	_ "github.com/siddontang/chaos/pkg/nemesis"
+
 	// register tidb
 	_ "github.com/siddontang/chaos/tidb"
 )
