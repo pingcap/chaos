@@ -21,8 +21,6 @@ type Client interface {
 	Invoke(ctx context.Context, node string, r interface{}) interface{}
 	// NextRequest generates a request for latter Invoke.
 	NextRequest() interface{}
-	// IsInfiniteResponse checks whether the response is unknown or not.
-	IsUnknownResponse(interface{}) bool
 }
 
 // ClientCreator creates a client.
@@ -59,9 +57,4 @@ func (noopClient) Invoke(ctx context.Context, node string, r interface{}) interf
 // NextRequest generates a request for latter Invoke.
 func (noopClient) NextRequest() interface{} {
 	return 1
-}
-
-// IsInfiniteResponse checks whether the response is unknown or not.
-func (noopClient) IsUnknownResponse(interface{}) bool {
-	return false
 }

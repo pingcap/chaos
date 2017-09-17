@@ -141,11 +141,6 @@ func (c *bankClient) NextRequest() interface{} {
 	return r
 }
 
-func (bankClient) IsUnknownResponse(r interface{}) bool {
-	resp, ok := r.(bankResponse)
-	return ok && resp.Unknown
-}
-
 type bankRequest struct {
 	// 0: read
 	// 1: transfer

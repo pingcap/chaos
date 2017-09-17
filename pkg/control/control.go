@@ -168,26 +168,19 @@ func (c *Controller) onClientLoop(i int) {
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
 
-	procID := atomic.AddInt64(&c.proc, 1)
 	for i := 0; i < c.cfg.RequestCount; i++ {
+		procID := atomic.AddInt64(&c.proc, 1)
+
 		request := client.NextRequest()
 
 		if err := c.recorder.RecordRequest(procID, request); err != nil {
-			log.Printf("record request %v failed %v", request, err)
+			log.Fatalf("record request %v failed %v", request, err)
 		}
 
 		response := client.Invoke(ctx, node, request)
 
 		if err := c.recorder.RecordResponse(procID, response); err != nil {
-			log.Printf("record response %v failed %v", response, err)
-		}
-
-		// If the response is unknown, we can't known wether the operation is executed
-		// ok or not, so we will use another new proc ID for next operation, so the history
-		// checker can think the operation has an infinite return time and will add it
-		// to the events list at last.
-		if client.IsUnknownResponse(response) {
-			procID = atomic.AddInt64(&c.proc, 1)
+			log.Fatalf("record response %v failed %v", response, err)
 		}
 
 		select {

@@ -3,6 +3,7 @@ package history
 import (
 	"bufio"
 	"encoding/json"
+	"log"
 	"os"
 	"sync"
 
@@ -104,9 +105,18 @@ type Verifier interface {
 // VerifyHistory checks the history file with model.
 // False means the history is not linearizable.
 func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error) {
-	f, err := os.Open(name)
+	events, err := parseEvents(name, p)
 	if err != nil {
 		return false, err
+	}
+	log.Printf("begin to verify %d events", len(events))
+	return porcupine.CheckEvents(m, events), nil
+}
+
+func parseEvents(name string, p RecordParser) ([]porcupine.Event, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
 	}
 	defer f.Close()
 
@@ -118,13 +128,13 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 	for scanner.Scan() {
 		var op operation
 		if err = json.Unmarshal(scanner.Bytes(), &op); err != nil {
-			return false, err
+			return nil, err
 		}
 
 		var value interface{}
 		if op.Action == InvokeOperation {
 			if value, err = p.OnRequest(op.Data); err != nil {
-				return false, err
+				return nil, err
 			}
 
 			event := porcupine.Event{
@@ -137,7 +147,7 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 			id++
 		} else {
 			if value, err = p.OnResponse(op.Data); err != nil {
-				return false, err
+				return nil, err
 			}
 
 			if value == nil {
@@ -156,7 +166,7 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 	}
 
 	if err = scanner.Err(); err != nil {
-		return false, err
+		return nil, err
 	}
 
 	for _, id := range procID {
@@ -169,5 +179,5 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 		events = append(events, event)
 	}
 
-	return porcupine.CheckEvents(m, events), nil
+	return events, nil
 }
