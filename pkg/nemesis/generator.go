@@ -19,7 +19,7 @@ func (g randomKillGenerator) Generate(nodes []string) []*core.NemesisOperation {
 	ops[index] = &core.NemesisOperation{
 		Name:    "kill",
 		Args:    []string{g.db},
-		RunTime: time.Second * time.Duration(rand.Intn(30)+1),
+		RunTime: time.Second * time.Duration(rand.Intn(10)+1),
 	}
 
 	return ops
@@ -45,7 +45,7 @@ func (g allKillGenerator) Generate(nodes []string) []*core.NemesisOperation {
 		ops[i] = &core.NemesisOperation{
 			Name:    "kill",
 			Args:    []string{g.db},
-			RunTime: time.Second * time.Duration(rand.Intn(30)+1),
+			RunTime: time.Second * time.Duration(rand.Intn(10)+1),
 		}
 	}
 	return ops

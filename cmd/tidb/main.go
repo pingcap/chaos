@@ -18,7 +18,7 @@ import (
 
 var (
 	nodePort     = flag.Int("node-port", 8080, "node port")
-	requestCount = flag.Int("request-count", 1000, "client test request count")
+	requestCount = flag.Int("request-count", 500, "client test request count")
 	runTime      = flag.Duration("run-time", 10*time.Minute, "client test run time")
 	clientCase   = flag.String("case", "bank", "client test case, like bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
@@ -52,6 +52,11 @@ func main() {
 
 	for _, name := range strings.Split(*nemesises, ",") {
 		var g core.NemesisGenerator
+		name := strings.TrimSpace(name)
+		if len(name) == 0 {
+			continue
+		}
+
 		switch name {
 		case "random_kill":
 			g = nemesis.NewRandomKillGenerator("tidb")
