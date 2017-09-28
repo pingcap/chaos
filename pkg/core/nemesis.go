@@ -73,8 +73,10 @@ func GetNemesis(name string) Nemesis {
 type NemesisOperation struct {
 	// Nemesis name
 	Name string
-	// Nemesis args
-	Args []string
+	// Nemesis invoke args
+	InvokeArgs []string
+	// Nemesis recover args
+	RecoverArgs []string
 	// Nemesis execute time
 	RunTime time.Duration
 }
@@ -102,9 +104,10 @@ func (NoopNemesisGenerator) Generate(nodes []string) []*NemesisOperation {
 	ops := make([]*NemesisOperation, len(nodes))
 	for i := 0; i < len(ops); i++ {
 		ops[i] = &NemesisOperation{
-			Name:    "noop",
-			Args:    nil,
-			RunTime: 0,
+			Name:        "noop",
+			InvokeArgs:  nil,
+			RecoverArgs: nil,
+			RunTime:     0,
 		}
 	}
 	return ops

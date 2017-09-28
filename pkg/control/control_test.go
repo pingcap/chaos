@@ -15,7 +15,6 @@ func TestControl(t *testing.T) {
 		RequestCount: 10,
 		RunTime:      10 * time.Second,
 		DB:           "noop",
-		Client:       "noop",
 	}
 
 	c := NewController(cfg, core.NoopClientCreator{}, []core.NemesisGenerator{

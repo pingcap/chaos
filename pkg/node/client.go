@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
+
+	"github.com/siddontang/chaos/pkg/core"
 )
 
 // Client is used to communicate with the node server
@@ -96,12 +97,17 @@ func (c *Client) IsDBRunning(name string) bool {
 }
 
 // RunNemesis runs nemesis
-func (c *Client) RunNemesis(name string, runTime time.Duration, args ...string) error {
+func (c *Client) RunNemesis(op *core.NemesisOperation) error {
 	v := url.Values{}
-	suffix := fmt.Sprintf("/nemesis/%s/run", name)
-	v.Set("dur", runTime.String())
-	if len(args) > 0 {
-		v.Set("args", strings.Join(args, ","))
+	suffix := fmt.Sprintf("/nemesis/%s/run", op.Name)
+	v.Set("dur", op.RunTime.String())
+	if len(op.InvokeArgs) > 0 {
+		v.Set("invoke_args", strings.Join(op.InvokeArgs, ","))
 	}
+
+	if len(op.RecoverArgs) > 0 {
+		v.Set("recover_args", strings.Join(op.RecoverArgs, ","))
+	}
+
 	return c.doPost(suffix, v, nil)
 }

@@ -1,8 +1,12 @@
 package node
 
-import "testing"
-import "net"
-import "time"
+import (
+	"net"
+	"testing"
+	"time"
+
+	"github.com/siddontang/chaos/pkg/core"
+)
 
 func getNodeAddr(t *testing.T) string {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
@@ -52,7 +56,12 @@ func TestNodeHandler(t *testing.T) {
 		t.Fatalf("tear down db failed %v", err)
 	}
 
-	if err := client.RunNemesis("noop", 0); err != nil {
+	if err := client.RunNemesis(&core.NemesisOperation{
+		Name:        "noop",
+		InvokeArgs:  nil,
+		RecoverArgs: nil,
+		RunTime:     0,
+	}); err != nil {
 		t.Fatalf("start nemesis failed %v", err)
 	}
 }

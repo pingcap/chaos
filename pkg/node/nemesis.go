@@ -45,17 +45,21 @@ func (h *nemesisHandler) Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	node := r.FormValue("node")
-	args := strings.Split(r.FormValue("args"), ",")
+	invokeArgs := strings.Split(r.FormValue("invoke_args"), ",")
+	recoverArgs := strings.Split(r.FormValue("recover_args"), ",")
 	runTime, _ := time.ParseDuration(r.FormValue("dur"))
 	if runTime == 0 {
 		runTime = 10 * time.Second
 	}
 
-	log.Printf("invoke nemesis %s with %v on node %s", nemesis.Name(), args, node)
+	log.Printf("invoke nemesis %s with %v on node %s", nemesis.Name(), invokeArgs, node)
 
-	defer nemesis.Recover(h.n.ctx, node)
+	defer func() {
+		log.Printf("recover nemesis %s with %v on node %s", nemesis.Name(), recoverArgs, node)
+		nemesis.Recover(h.n.ctx, node, recoverArgs...)
+	}()
 
-	if err := nemesis.Invoke(h.n.ctx, node, args...); err != nil {
+	if err := nemesis.Invoke(h.n.ctx, node, invokeArgs...); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}

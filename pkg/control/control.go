@@ -66,7 +66,6 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 // Close closes the controller.
 func (c *Controller) Close() {
 	c.cancel()
-	c.recorder.Close()
 }
 
 // Run runs the controller.
@@ -99,6 +98,8 @@ func (c *Controller) Run() {
 
 	c.tearDownClient()
 	c.tearDownDB()
+
+	c.recorder.Close()
 }
 
 func (c *Controller) syncExec(f func(i int)) {
@@ -230,8 +231,8 @@ func (c *Controller) onNemesisLoop(ctx context.Context, index int, op *core.Neme
 	nodeClient := c.nodeClients[index]
 	node := c.nodes[index]
 
-	log.Printf("run nemesis %s with %v on %s", op.Name, op.Args, node)
-	if err := nodeClient.RunNemesis(op.Name, op.RunTime, op.Args...); err != nil {
-		log.Printf("run nemesis %s with %v on %s failed: %v", op.Name, op.Args, node, err)
+	log.Printf("run nemesis %s on %s", op.Name, node)
+	if err := nodeClient.RunNemesis(op); err != nil {
+		log.Printf("run nemesis %s on %s failed: %v", op.Name, node, err)
 	}
 }
