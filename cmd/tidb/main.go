@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -74,19 +75,31 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
 		<-sigs
 		c.Close()
+		cancel()
 	}()
 
 	c.Run()
 
-	ok, err := verifier.Verify(*historyFile)
-	if err != nil {
-		log.Fatalf("verify history failed %v", err)
-	}
+	// Verify may take a long time, we should quit ASAP if receive signal.
+	go func() {
+		ok, err := verifier.Verify(*historyFile)
+		if err != nil {
+			log.Fatalf("verify history failed %v", err)
+		}
 
-	if !ok {
-		log.Fatalf("%s history %s is not linearizable", *clientCase, *historyFile)
-	}
+		if !ok {
+			log.Fatalf("%s history %s is not linearizable", *clientCase, *historyFile)
+		} else {
+			log.Printf("%s history %s is linearizable", *clientCase, *historyFile)
+		}
+
+		cancel()
+	}()
+
+	<-ctx.Done()
 }
