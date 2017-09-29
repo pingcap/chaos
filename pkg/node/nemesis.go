@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -49,7 +50,7 @@ func (h *nemesisHandler) Run(w http.ResponseWriter, r *http.Request) {
 	recoverArgs := strings.Split(r.FormValue("recover_args"), ",")
 	runTime, _ := time.ParseDuration(r.FormValue("dur"))
 	if runTime == 0 {
-		runTime = 10 * time.Second
+		runTime = time.Second * time.Duration(rand.Intn(10)+1)
 	}
 
 	log.Printf("invoke nemesis %s with %v on node %s", nemesis.Name(), invokeArgs, node)

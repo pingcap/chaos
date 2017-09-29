@@ -100,7 +100,10 @@ func (c *Client) IsDBRunning(name string) bool {
 func (c *Client) RunNemesis(op *core.NemesisOperation) error {
 	v := url.Values{}
 	suffix := fmt.Sprintf("/nemesis/%s/run", op.Name)
-	v.Set("dur", op.RunTime.String())
+	if op.RunTime > 0 {
+		v.Set("dur", op.RunTime.String())
+	}
+
 	if len(op.InvokeArgs) > 0 {
 		v.Set("invoke_args", strings.Join(op.InvokeArgs, ","))
 	}

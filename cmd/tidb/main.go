@@ -59,10 +59,10 @@ func main() {
 		}
 
 		switch name {
-		case "random_kill":
-			g = nemesis.NewRandomKillGenerator("tidb")
-		case "all_kill":
-			g = nemesis.NewAllKillGenerator("tidb")
+		case "random_kill", "all_kill", "minor_kill", "major_kill":
+			g = nemesis.NewKillGenerator("tidb", name)
+		case "random_drop", "all_drop", "minor_drop", "major_drop":
+			g = nemesis.NewDropGenerator(name)
 		default:
 			log.Fatalf("invalid nemesis generator")
 		}
