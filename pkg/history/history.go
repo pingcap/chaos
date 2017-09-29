@@ -99,13 +99,13 @@ type RecordParser interface {
 
 // Verifier verifies the history.
 type Verifier interface {
-	Verify(name string) (bool, error)
+	Verify(historyFile string) (bool, error)
 }
 
 // VerifyHistory checks the history file with model.
 // False means the history is not linearizable.
-func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error) {
-	events, err := parseEvents(name, p)
+func VerifyHistory(historyFile string, m porcupine.Model, p RecordParser) (bool, error) {
+	events, err := parseEvents(historyFile, p)
 	if err != nil {
 		return false, err
 	}
@@ -113,8 +113,8 @@ func VerifyHistory(name string, m porcupine.Model, p RecordParser) (bool, error)
 	return porcupine.CheckEvents(m, events), nil
 }
 
-func parseEvents(name string, p RecordParser) ([]porcupine.Event, error) {
-	f, err := os.Open(name)
+func parseEvents(historyFile string, p RecordParser) ([]porcupine.Event, error) {
+	f, err := os.Open(historyFile)
 	if err != nil {
 		return nil, err
 	}

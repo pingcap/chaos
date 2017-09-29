@@ -242,6 +242,6 @@ type BankVerifier struct {
 }
 
 // Verify verifies the bank history.
-func (BankVerifier) Verify(name string) (bool, error) {
-	return history.VerifyHistory(name, getBankModel(5), bankParser{})
+func (BankVerifier) Verify(historyFile string) (bool, error) {
+	return history.VerifyHistory(historyFile, getBankModel(5), bankParser{})
 }
