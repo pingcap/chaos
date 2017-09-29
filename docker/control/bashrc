@@ -8,8 +8,8 @@ You are currently in the base dir of the git repo for Chaos.
 
 To run a test:
    make
-   ./script/deploy_node.sh
-   ./script/start_node.sh
+   ./script/deploy_agent.sh
+   ./script/start_agent.sh
    ./bin/chaos-tidb
 EOF
 

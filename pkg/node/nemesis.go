@@ -14,14 +14,14 @@ import (
 )
 
 type nemesisHandler struct {
-	n  *Node
-	rd *render.Render
+	agent *Agent
+	rd    *render.Render
 }
 
-func newNemesisHandler(n *Node, rd *render.Render) *nemesisHandler {
+func newNemesisHandler(agent *Agent, rd *render.Render) *nemesisHandler {
 	return &nemesisHandler{
-		n:  n,
-		rd: rd,
+		agent: agent,
+		rd:    rd,
 	}
 }
 
@@ -36,8 +36,8 @@ func (h *nemesisHandler) getNemesis(w http.ResponseWriter, vars map[string]strin
 }
 
 func (h *nemesisHandler) Run(w http.ResponseWriter, r *http.Request) {
-	h.n.nemesisLock.Lock()
-	defer h.n.nemesisLock.Unlock()
+	h.agent.nemesisLock.Lock()
+	defer h.agent.nemesisLock.Unlock()
 
 	vars := mux.Vars(r)
 	nemesis := h.getNemesis(w, vars)
@@ -57,16 +57,16 @@ func (h *nemesisHandler) Run(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		log.Printf("recover nemesis %s with %v on node %s", nemesis.Name(), recoverArgs, node)
-		nemesis.Recover(h.n.ctx, node, recoverArgs...)
+		nemesis.Recover(h.agent.ctx, node, recoverArgs...)
 	}()
 
-	if err := nemesis.Invoke(h.n.ctx, node, invokeArgs...); err != nil {
+	if err := nemesis.Invoke(h.agent.ctx, node, invokeArgs...); err != nil {
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	select {
-	case <-h.n.ctx.Done():
+	case <-h.agent.ctx.Done():
 	case <-time.After(runTime):
 	}
 

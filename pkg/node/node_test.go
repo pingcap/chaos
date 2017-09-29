@@ -20,13 +20,13 @@ func getNodeAddr(t *testing.T) string {
 }
 func TestNodeHandler(t *testing.T) {
 	addr := getNodeAddr(t)
-	node := NewNode(addr)
-	defer node.Close()
+	agent := NewAgent(addr)
+	defer agent.Close()
 
 	client := NewClient("n0", addr)
 
 	go func() {
-		node.Run()
+		agent.Run()
 	}()
 
 	time.Sleep(time.Second)

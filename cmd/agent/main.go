@@ -35,18 +35,18 @@ func main() {
 	log.SetOutput(f)
 
 	log.Printf("begin to listen %s", *nodeAddr)
-	n := node.NewNode(*nodeAddr)
+	agent := node.NewAgent(*nodeAddr)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		n.Run()
+		agent.Run()
 	}()
 
 	<-sigs
 	log.Printf("closing node")
 
-	n.Close()
+	agent.Close()
 
 	log.Printf("node is closed")
 }

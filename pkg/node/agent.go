@@ -11,10 +11,10 @@ import (
 	"github.com/urfave/negroni"
 )
 
-const apiPrefix = "/node"
+const apiPrefix = "/agent"
 
-// Node is the Node to let the controller to control the node.
-type Node struct {
+// Agent is the agent to let the controller to control the node.
+type Agent struct {
 	addr   string
 	s      *http.Server
 	ctx    context.Context
@@ -23,42 +23,42 @@ type Node struct {
 	nemesisLock sync.Mutex
 }
 
-// NewNode creates the node with given address
-func NewNode(addr string) *Node {
-	n := &Node{
+// NewAgent creates the agent with given address
+func NewAgent(addr string) *Agent {
+	agent := &Agent{
 		addr: addr,
 	}
 
-	n.ctx, n.cancel = context.WithCancel(context.Background())
-	return n
+	agent.ctx, agent.cancel = context.WithCancel(context.Background())
+	return agent
 }
 
-// Run runs the Node API server
-func (n *Node) Run() error {
-	n.s = &http.Server{
-		Addr:    n.addr,
-		Handler: n.createHandler(),
+// Run runs the agent API server
+func (agent *Agent) Run() error {
+	agent.s = &http.Server{
+		Addr:    agent.addr,
+		Handler: agent.createHandler(),
 	}
-	return n.s.ListenAndServe()
+	return agent.s.ListenAndServe()
 }
 
-// Close closes the Node.
-func (n *Node) Close() {
-	n.cancel()
-	if n.s != nil {
+// Close closes the agent.
+func (agent *Agent) Close() {
+	agent.cancel()
+	if agent.s != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		n.s.Shutdown(ctx)
+		agent.s.Shutdown(ctx)
 		cancel()
 	}
 }
 
-func (n *Node) createHandler() http.Handler {
+func (agent *Agent) createHandler() http.Handler {
 	engine := negroni.New()
 	recover := negroni.NewRecovery()
 	engine.Use(recover)
 
 	router := mux.NewRouter()
-	subRouter := n.createRouter()
+	subRouter := agent.createRouter()
 	router.PathPrefix(apiPrefix).Handler(
 		negroni.New(negroni.Wrap(subRouter)),
 	)
@@ -67,19 +67,19 @@ func (n *Node) createHandler() http.Handler {
 	return engine
 }
 
-func (n *Node) createRouter() *mux.Router {
+func (agent *Agent) createRouter() *mux.Router {
 	rd := render.New(render.Options{
 		IndentJSON: true,
 	})
 
 	router := mux.NewRouter().PathPrefix(apiPrefix).Subrouter()
 
-	nemesisHandler := newNemesisHandler(n, rd)
+	nemesisHandler := newNemesisHandler(agent, rd)
 	// router.HandleFunc("/nemesis/{name}/setup", nemesisHandler.SetUp).Methods("POST")
 	// router.HandleFunc("/nemesis/{name}/teardown", nemesisHandler.TearDown).Methods("POST")
 	router.HandleFunc("/nemesis/{name}/run", nemesisHandler.Run).Methods("POST")
 
-	dbHandler := newDBHanlder(n, rd)
+	dbHandler := newDBHanlder(agent, rd)
 	router.HandleFunc("/db/{name}/setup", dbHandler.SetUp).Methods("POST")
 	router.HandleFunc("/db/{name}/teardown", dbHandler.TearDown).Methods("POST")
 

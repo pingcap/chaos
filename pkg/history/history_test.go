@@ -84,7 +84,7 @@ func TestHistory(t *testing.T) {
 	defer r.Close()
 
 	actions := []struct {
-		proc int
+		proc int64
 		op   interface{}
 	}{
 		{1, noopRequest{Op: 0}},

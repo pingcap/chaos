@@ -28,8 +28,8 @@ In another shell, use `docker exec -it chaos-control bash` to enter the controll
 make
 
 # deploy and start node agent
-./scripts/deploy_node.sh
-./scripts/start_node.sh
+./scripts/deploy_agent.sh
+./scripts/start_agent.sh
 
 # run you own chaos like
 ./bin/chaos-tidb

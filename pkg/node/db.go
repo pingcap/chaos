@@ -12,13 +12,13 @@ import (
 )
 
 type dbHandler struct {
-	n  *Node
+	agent  *Agent
 	rd *render.Render
 }
 
-func newDBHanlder(n *Node, rd *render.Render) *dbHandler {
+func newDBHanlder(agent *Agent, rd *render.Render) *dbHandler {
 	return &dbHandler{
-		n:  n,
+		agent:  agent,
 		rd: rd,
 	}
 }
@@ -43,7 +43,7 @@ func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
 	nodes := strings.Split(r.FormValue("nodes"), ",")
 
 	log.Printf("set up db %s on node %s", db.Name(), node)
-	if err := db.SetUp(h.n.ctx, nodes, node); err != nil {
+	if err := db.SetUp(h.agent.ctx, nodes, node); err != nil {
 		log.Panicf("set up db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return
@@ -63,7 +63,7 @@ func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
 	nodes := strings.Split(r.FormValue("nodes"), ",")
 
 	log.Printf("tear down db %s on node %s", db.Name(), node)
-	if err := db.TearDown(h.n.ctx, nodes, node); err != nil {
+	if err := db.TearDown(h.agent.ctx, nodes, node); err != nil {
 		log.Panicf("tear down db %s failed %v", db.Name(), err)
 		h.rd.JSON(w, http.StatusInternalServerError, err.Error())
 		return

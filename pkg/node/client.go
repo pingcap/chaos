@@ -11,7 +11,7 @@ import (
 	"github.com/siddontang/chaos/pkg/core"
 )
 
-// Client is used to communicate with the node server
+// Client is used to communicate with the agent server on the node.
 type Client struct {
 	node   string
 	addr   string
@@ -33,7 +33,7 @@ func (c *Client) Node() string {
 }
 
 func (c *Client) getURLPrefix() string {
-	return fmt.Sprintf("http://%s/node", c.addr)
+	return fmt.Sprintf("http://%s%s", c.addr, apiPrefix)
 }
 
 func (c *Client) doPost(suffix string, args url.Values, data []byte) error {

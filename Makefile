@@ -2,10 +2,10 @@ default: build
 
 all: build 
 
-build: node chaos
+build: agent chaos
 
-node:
-	go build -o bin/chaos-node cmd/node/main.go
+agent:
+	go build -o bin/chaos-agent cmd/agent/main.go
 
 chaos:
 	go build -o bin/chaos-tidb cmd/tidb/main.go
