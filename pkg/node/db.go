@@ -12,14 +12,14 @@ import (
 )
 
 type dbHandler struct {
-	agent  *Agent
-	rd *render.Render
+	agent *Agent
+	rd    *render.Render
 }
 
 func newDBHanlder(agent *Agent, rd *render.Render) *dbHandler {
 	return &dbHandler{
-		agent:  agent,
-		rd: rd,
+		agent: agent,
+		rd:    rd,
 	}
 }
 
@@ -34,6 +34,9 @@ func (h *dbHandler) getDB(w http.ResponseWriter, vars map[string]string) core.DB
 }
 
 func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
+	h.agent.dbLock.Lock()
+	defer h.agent.dbLock.Unlock()
+
 	vars := mux.Vars(r)
 	db := h.getDB(w, vars)
 	if db == nil {
@@ -53,6 +56,9 @@ func (h *dbHandler) SetUp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *dbHandler) TearDown(w http.ResponseWriter, r *http.Request) {
+	h.agent.dbLock.Lock()
+	defer h.agent.dbLock.Unlock()
+
 	vars := mux.Vars(r)
 	db := h.getDB(w, vars)
 	if db == nil {

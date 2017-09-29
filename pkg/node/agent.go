@@ -20,6 +20,7 @@ type Agent struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	dbLock      sync.Mutex
 	nemesisLock sync.Mutex
 }
 
