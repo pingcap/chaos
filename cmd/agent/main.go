@@ -14,7 +14,7 @@ import (
 	_ "github.com/siddontang/chaos/pkg/nemesis"
 
 	// register tidb
-	_ "github.com/siddontang/chaos/tidb"
+	_ "github.com/siddontang/chaos/db/tidb"
 )
 
 var (
