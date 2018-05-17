@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/siddontang/chaos/db/tidb"
 	"github.com/siddontang/chaos/pkg/control"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
 	"github.com/siddontang/chaos/pkg/nemesis"
-	"github.com/siddontang/chaos/tidb"
 )
 
 var (
