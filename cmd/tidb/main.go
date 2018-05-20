@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/siddontang/chaos/cmd/verifier/verify"
 	"github.com/siddontang/chaos/db/tidb"
 	"github.com/siddontang/chaos/pkg/control"
 	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
 	"github.com/siddontang/chaos/pkg/nemesis"
 )
 
@@ -24,6 +24,7 @@ var (
 	clientCase   = flag.String("case", "bank", "client test case, like bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
+	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, tidb-bank,tidb-bank-tso")
 )
 
 func main() {
@@ -39,14 +40,12 @@ func main() {
 
 	var (
 		creator     core.ClientCreator
-		verifier    history.Verifier
 		nemesisGens []core.NemesisGenerator
 	)
 
 	switch *clientCase {
 	case "bank":
 		creator = tidb.BankClientCreator{}
-		verifier = tidb.BankVerifier{}
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
@@ -85,21 +84,5 @@ func main() {
 
 	c.Run()
 
-	// Verify may take a long time, we should quit ASAP if receive signal.
-	go func() {
-		ok, err := verifier.Verify(*historyFile)
-		if err != nil {
-			log.Fatalf("verify history failed %v", err)
-		}
-
-		if !ok {
-			log.Fatalf("%s history %s is not linearizable", *clientCase, *historyFile)
-		} else {
-			log.Printf("%s history %s is linearizable", *clientCase, *historyFile)
-		}
-
-		cancel()
-	}()
-
-	<-ctx.Done()
+	verify.Verify(ctx, *historyFile, *verifyNames)
 }
