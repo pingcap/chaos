@@ -1,4 +1,4 @@
-FROM golang:1.8
+FROM golang:1.10
 MAINTAINER siddontang@gmail.com
 
 RUN apt-get -y -q update && \
