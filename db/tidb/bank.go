@@ -298,12 +298,21 @@ type tsoEvent struct {
 	Unknown bool
 }
 
-func (e tsoEvent) String() string {
+func (e *tsoEvent) String() string {
 	if e.Op == 0 {
 		return fmt.Sprintf("%d, read %v, unknown %v", e.Tso, e.Balances, e.Unknown)
 	}
 
 	return fmt.Sprintf("%d, transafer %d %d(%d) -> %d(%d), unknown %v", e.Tso, e.Amount, e.From, e.FromBalance, e.To, e.ToBalance, e.Unknown)
+}
+
+// GetBalances gets the two balances of account before and after the transfer.
+func (e *tsoEvent) GetBalances(index int) (int64, int64) {
+	if index == e.From {
+		return e.FromBalance, e.FromBalance - e.Amount
+	}
+
+	return e.ToBalance, e.ToBalance + e.Amount
 }
 
 type tsoEvents []*tsoEvent
@@ -368,15 +377,93 @@ func generateTsoEvents(events []porcupine.Event) tsoEvents {
 	return tEvents
 }
 
-// possibleBalances saves the possible balances we may meet.
-// If the operation is Unknown, we can't know whether
-// this operation is successful or not, so we may have different balance.
-// E.g, the last balance is 1000, we reduce 100, so the next balance may be 1000 or 900 if Unknown.
-type possibleBalances []int64
+// mergeTransferEvents checks whether e can be merged into the events.
+// We may meet following cases for one account:
+// Assume last event starts at T1, the checking event starts at T2.
+// 1:
+// 	T1: [1000] -> [900], Unknown
+//	T2: [900] -> [800], Unknown?
+// Here T2 reads 900, so we can ensure T1 is successful no matter T1 is unknown or not.
+// We can set T1 to OK. After T1 is set to OK, we must check T1 to its previous events.
+// 2:
+//	T1: [1000] -> [900], OK
+//	T2: [1000] -> [800], Unknown
+// Here T1 is successful, but T2 is unknown, it is fine now.
+// 3:
+// 	T1: [1000] -> [900], Ok
+//	T2: [1000] -> [800], Ok
+// Invalid, because we use SSI here, even T2 can read 1000, it can't change it because
+// it must conflict with T1.
+// 4:
+// 	T1: [1000] -> [900], Unknown?
+//	T2: [800] -> [700], Unknown?
+// Invalid, T2 reads a stale value.
+func mergeTransferEvents(index int, events tsoEvents, e *tsoEvent) (tsoEvents, error) {
+	curBalance, _ := e.GetBalances(index)
 
-func (s possibleBalances) checkIn(balance int64) bool {
-	for _, b := range s {
-		if balance == b {
+	if !checkBalance(index, events, curBalance) {
+		return nil, fmt.Errorf("invalid event %s", e)
+	}
+
+	events = append(events, e)
+
+	// Get the last successful event e2
+	lastIdx, err := checkTransferEvents(index, events)
+	if err != nil {
+		return nil, err
+	}
+
+	// clear all events before the successful event
+	return events[lastIdx:], nil
+}
+
+// For all the successful transfer events, we must form a transfer chain like
+// T1 [1000] -> [900]
+// T2 [900] -> [800]
+// T3 [800] -> [700]
+// The function will return the last successful event index, if no found, return 0
+func checkTransferEvents(index int, events tsoEvents) (int, error) {
+	var (
+		lastEvent *tsoEvent
+		lastIndex int
+	)
+	for i, e := range events {
+		if e.Unknown {
+			continue
+		}
+
+		if lastEvent != nil {
+			_, next := lastEvent.GetBalances(index)
+			cur, _ := e.GetBalances(index)
+			if next != cur {
+				return 0, fmt.Errorf("invalid events from %s to %s", lastEvent, e)
+			}
+		}
+
+		lastIndex = i
+		lastEvent = e
+	}
+
+	return lastIndex, nil
+}
+
+func checkBalance(index int, events tsoEvents, curBalance int64) bool {
+	if len(events) == 0 {
+		return curBalance == initBalance
+	}
+
+	for i := len(events) - 1; i >= 0; i-- {
+		lastEvent := events[i]
+		cur, next := lastEvent.GetBalances(index)
+		if next == curBalance {
+			// We read the next balance of the last event, which means the last transfer is
+			// successful
+			lastEvent.Unknown = false
+			return true
+		}
+
+		if cur == curBalance {
+			// Oh, we read the same balance with the last event
 			return true
 		}
 	}
@@ -384,65 +471,55 @@ func (s possibleBalances) checkIn(balance int64) bool {
 	return false
 }
 
-func verifyTsoEvents(events tsoEvents) bool {
-	transferBalances := make([]possibleBalances, accountNum)
-	readBalances := make([]possibleBalances, accountNum)
-
-	// At first, the initialized balance is 1000.
-	for i := 0; i < len(transferBalances); i++ {
-		transferBalances[i] = []int64{initBalance}
-		readBalances[i] = []int64{initBalance}
+// verifyReadEvent verifies the read event.
+func verifyReadEvent(possibleEvents []tsoEvents, e *tsoEvent) bool {
+	if e.Unknown {
+		return true
 	}
 
+	sum := int64(0)
+	for i, balance := range e.Balances {
+		sum += balance
+
+		if !checkBalance(i, possibleEvents[i], balance) {
+			log.Printf("invalid event %s, balance mismatch", e)
+			return false
+		}
+	}
+
+	if sum != int64(len(e.Balances))*initBalance {
+		log.Printf("invalid event %s, sum corruption", e)
+		return false
+	}
+
+	return true
+}
+
+func verifyTsoEvents(events tsoEvents) bool {
+	possibleEvents := make([]tsoEvents, accountNum)
+
+	var err error
 	for _, event := range events {
+		if event.Op == 0 {
+			if !verifyReadEvent(possibleEvents, event) {
+				return false
+			}
+		}
+
 		if event.Op == 1 {
-			if !transferBalances[event.From].checkIn(event.FromBalance) {
-				log.Printf("invalid event %s, last balances %v", event, transferBalances)
+			from := event.From
+			possibleEvents[from], err = mergeTransferEvents(from, possibleEvents[from], event)
+			if err != nil {
+				log.Print(err.Error())
 				return false
 			}
 
-			if !transferBalances[event.To].checkIn(event.ToBalance) {
-				log.Printf("invalid event %s, last balances %v", event, transferBalances)
+			to := event.To
+			possibleEvents[to], err = mergeTransferEvents(to, possibleEvents[to], event)
+			if err != nil {
+				log.Print(err.Error())
 				return false
 			}
-
-			newFromBalance := event.FromBalance - event.Amount
-			newToBalnce := event.ToBalance + event.Amount
-
-			if !event.Unknown {
-				transferBalances[event.From] = []int64{newFromBalance}
-				transferBalances[event.To] = []int64{newToBalnce}
-			} else {
-				transferBalances[event.From] = []int64{event.FromBalance, newFromBalance}
-				transferBalances[event.To] = []int64{event.ToBalance, newToBalnce}
-
-			}
-
-			// When we start a transfer at t1 (star timestamp), we can't know the exact commit timestamp (maybe t3),
-			// so for every read transaction happends at [t1, t3], the transaction may read the old or the new value.
-			readBalances[event.From] = []int64{event.FromBalance, newFromBalance}
-			readBalances[event.To] = []int64{event.ToBalance, newToBalnce}
-			// log.Printf("event: %s, new state %v", event, transferBalances)
-		} else if event.Op == 0 {
-			if event.Unknown {
-				continue
-			}
-
-			sum := int64(0)
-			for i, balance := range event.Balances {
-				sum += balance
-				if !readBalances[i].checkIn(balance) {
-					log.Printf("invalid event %s, last balances %v", event, readBalances)
-					return false
-				}
-			}
-
-			if sum != int64(accountNum)*initBalance {
-				log.Printf("invalid event %s, last balances %v", event, readBalances)
-				return false
-			}
-
-			// log.Printf("event: %s, new state %v", event, readBalances)
 		}
 	}
 
