@@ -96,6 +96,21 @@ func TestBankVerifyNoLinerizable(t *testing.T) {
 		t.Fatal("must be not linearizable")
 	}
 
+	// if checkTsoEvents(events) {
+	// 	t.Fatal("must be not linearizable")
+	// }
+}
+
+func TestBankVerifyNoLinerizable2(t *testing.T) {
+	events := []porcupine.Event{
+		newBankEvent(bankRequest{Op: 0}, 1),
+		newBankEvent(bankResponse{Balances: []int64{1000, 1000}, Tso: 1}, 1),
+		newBankEvent(bankRequest{Op: 1, From: 0, To: 1, Amount: 100}, 2),
+		newBankEvent(bankRequest{Op: 1, From: 0, To: 1, Amount: 200}, 3),
+		newBankEvent(bankResponse{Ok: true, Tso: 3, FromBalance: 1000, ToBalance: 1000}, 3),
+		newBankEvent(bankResponse{Ok: true, Tso: 2, FromBalance: 1000, ToBalance: 1000}, 2),
+	}
+
 	if checkTsoEvents(events) {
 		t.Fatal("must be not linearizable")
 	}
