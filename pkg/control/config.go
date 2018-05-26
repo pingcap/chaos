@@ -6,9 +6,7 @@ import (
 
 // Config is the configuration for the controller.
 type Config struct {
-	// NodePort is used to communicate with the node server.
-	NodePort int
-	// DB is the name which we want to run, you must register the db in the node before.
+	// DB is the name which we want to run.
 	DB string
 	// RequestCount controls how many requests a client sends to the db
 	RequestCount int
@@ -16,7 +14,7 @@ type Config struct {
 	RunTime time.Duration
 
 	// History file
-	History string 
+	History string
 }
 
 func (c *Config) adjust() {

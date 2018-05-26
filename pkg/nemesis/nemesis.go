@@ -34,7 +34,7 @@ func (n drop) Invoke(ctx context.Context, node string, args ...string) error {
 			continue
 		}
 
-		if err := n.t.Drop(ctx, dropNode); err != nil {
+		if err := n.t.Drop(ctx, node, dropNode); err != nil {
 			return err
 		}
 	}
@@ -42,7 +42,7 @@ func (n drop) Invoke(ctx context.Context, node string, args ...string) error {
 }
 
 func (n drop) Recover(ctx context.Context, node string, args ...string) error {
-	return n.t.Heal(ctx)
+	return n.t.Heal(ctx, node)
 }
 
 func (drop) Name() string {

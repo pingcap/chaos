@@ -18,13 +18,12 @@ import (
 )
 
 var (
-	nodePort     = flag.Int("node-port", 8080, "node port")
 	requestCount = flag.Int("request-count", 500, "client test request count")
 	runTime      = flag.Duration("run-time", 10*time.Minute, "client test run time")
 	clientCase   = flag.String("case", "bank", "client test case, like bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
-	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, tidb-bank,tidb-bank-tso")
+	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, tidb_bank,tidb_bank_tso")
 )
 
 func main() {
@@ -32,7 +31,6 @@ func main() {
 
 	cfg := &control.Config{
 		DB:           "tidb",
-		NodePort:     *nodePort,
 		RequestCount: *requestCount,
 		RunTime:      *runTime,
 		History:      *historyFile,

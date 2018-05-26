@@ -3,16 +3,15 @@ package tidb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
-	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/util"
+	"github.com/siddontang/chaos/pkg/util/ssh"
 )
 
 const (
@@ -41,20 +40,21 @@ type db struct {
 // SetUp initializes the database.
 func (db *db) SetUp(ctx context.Context, nodes []string, node string) error {
 	// Try kill all old servers
-	exec.CommandContext(ctx, "killall", "-9", "tidb-server").Run()
-	exec.CommandContext(ctx, "killall", "-9", "tikv-server").Run()
-	exec.CommandContext(ctx, "killall", "-9", "pd-server").Run()
+	ssh.Exec(ctx, node, "killall", "-9", "tidb-server")
+	ssh.Exec(ctx, node, "killall", "-9", "tikv-server")
+	ssh.Exec(ctx, node, "killall", "-9", "pd-server")
 
 	db.nodes = nodes
 
-	if err := util.InstallArchive(ctx, archiveURL, deployDir); err != nil {
+	log.Printf("install archieve on node %s", node)
+	if err := util.InstallArchive(ctx, node, archiveURL, deployDir); err != nil {
 		return err
 	}
 
-	os.MkdirAll(path.Join(deployDir, "conf"), 0755)
-	os.MkdirAll(path.Join(deployDir, "log"), 0755)
+	util.Mkdir(ctx, node, path.Join(deployDir, "conf"))
+	util.Mkdir(ctx, node, path.Join(deployDir, "log"))
 
-	if err := ioutil.WriteFile(pdConfig, []byte("[replication]\nmax-replicas=5"), 0644); err != nil {
+	if err := util.WriteFile(ctx, node, pdConfig, strconv.Quote("[replication]\nmax-replicas=5")); err != nil {
 		return err
 	}
 
@@ -68,7 +68,7 @@ func (db *db) SetUp(ctx context.Context, nodes []string, node string) error {
 		"raft_election_timeout_ticks=10",
 	}
 
-	if err := ioutil.WriteFile(tikvConfig, []byte(strings.Join(tikvCfs, "\n")), 0644); err != nil {
+	if err := util.WriteFile(ctx, node, tikvConfig, strconv.Quote(strings.Join(tikvCfs, "\n"))); err != nil {
 		return err
 	}
 
@@ -86,6 +86,8 @@ func (db *db) Start(ctx context.Context, node string) error {
 }
 
 func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
+	log.Printf("start database on node %s", node)
+
 	initialClusterArgs := make([]string, len(db.nodes))
 	for i, n := range db.nodes {
 		initialClusterArgs[i] = fmt.Sprintf("%s=http://%s:2380", n, n)
@@ -105,7 +107,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 	log.Printf("start pd-server on node %s", node)
 	pdPID := path.Join(deployDir, "pd.pid")
 	opts := util.NewDaemonOptions(deployDir, pdPID)
-	if err := util.StartDaemon(ctx, opts, pdBinary, pdArgs...); err != nil {
+	if err := util.StartDaemon(ctx, node, opts, pdBinary, pdArgs...); err != nil {
 		return err
 	}
 
@@ -113,7 +115,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		time.Sleep(5 * time.Second)
 	}
 
-	if !util.IsDaemonRunning(ctx, pdBinary, pdPID) {
+	if !util.IsDaemonRunning(ctx, node, pdBinary, pdPID) {
 		return fmt.Errorf("fail to start pd on node %s", node)
 	}
 
@@ -134,7 +136,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 	log.Printf("start tikv-server on node %s", node)
 	tikvPID := path.Join(deployDir, "tikv.pid")
 	opts = util.NewDaemonOptions(deployDir, tikvPID)
-	if err := util.StartDaemon(ctx, opts, tikvBinary, tikvArgs...); err != nil {
+	if err := util.StartDaemon(ctx, node, opts, tikvBinary, tikvArgs...); err != nil {
 		return err
 	}
 
@@ -142,7 +144,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		time.Sleep(30 * time.Second)
 	}
 
-	if !util.IsDaemonRunning(ctx, tikvBinary, tikvPID) {
+	if !util.IsDaemonRunning(ctx, node, tikvBinary, tikvPID) {
 		return fmt.Errorf("fail to start tikv on node %s", node)
 	}
 
@@ -155,7 +157,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 	log.Printf("start tidb-erver on node %s", node)
 	tidbPID := path.Join(deployDir, "tidb.pid")
 	opts = util.NewDaemonOptions(deployDir, tidbPID)
-	if err := util.StartDaemon(ctx, opts, tidbBinary, tidbArgs...); err != nil {
+	if err := util.StartDaemon(ctx, node, opts, tidbBinary, tidbArgs...); err != nil {
 		return err
 	}
 
@@ -163,7 +165,7 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		time.Sleep(30 * time.Second)
 	}
 
-	if !util.IsDaemonRunning(ctx, tidbBinary, tidbPID) {
+	if !util.IsDaemonRunning(ctx, node, tidbBinary, tidbPID) {
 		return fmt.Errorf("fail to start tidb on node %s", node)
 	}
 
@@ -172,41 +174,33 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 
 // Stop stops the database
 func (db *db) Stop(ctx context.Context, node string) error {
-	if err := util.StopDaemon(ctx, tidbBinary, path.Join(deployDir, "tidb.pid")); err != nil {
+	if err := util.StopDaemon(ctx, node, tidbBinary, path.Join(deployDir, "tidb.pid")); err != nil {
 		return err
 	}
 
-	if err := util.StopDaemon(ctx, tikvBinary, path.Join(deployDir, "tikv.pid")); err != nil {
+	if err := util.StopDaemon(ctx, node, tikvBinary, path.Join(deployDir, "tikv.pid")); err != nil {
 		return err
 	}
 
-	if err := util.StopDaemon(ctx, pdBinary, path.Join(deployDir, "pd.pid")); err != nil {
-		return err
-	}
-
-	return nil
+	return util.StopDaemon(ctx, node, pdBinary, path.Join(deployDir, "pd.pid"))
 }
 
 // Kill kills the database
 func (db *db) Kill(ctx context.Context, node string) error {
-	if err := util.KillDaemon(ctx, tidbBinary, path.Join(deployDir, "tidb.pid")); err != nil {
+	if err := util.KillDaemon(ctx, node, tidbBinary, path.Join(deployDir, "tidb.pid")); err != nil {
 		return err
 	}
 
-	if err := util.KillDaemon(ctx, tikvBinary, path.Join(deployDir, "tikv.pid")); err != nil {
+	if err := util.KillDaemon(ctx, node, tikvBinary, path.Join(deployDir, "tikv.pid")); err != nil {
 		return err
 	}
 
-	if err := util.KillDaemon(ctx, pdBinary, path.Join(deployDir, "pd.pid")); err != nil {
-		return err
-	}
-
-	return nil
+	return util.KillDaemon(ctx, node, pdBinary, path.Join(deployDir, "pd.pid"))
 }
 
 // IsRunning checks whether the database is running or not
 func (db *db) IsRunning(ctx context.Context, node string) bool {
-	return util.IsDaemonRunning(ctx, tidbBinary, path.Join(deployDir, "tidb.pid"))
+	return util.IsDaemonRunning(ctx, node, tidbBinary, path.Join(deployDir, "tidb.pid"))
 }
 
 // Name returns the unique name for the database

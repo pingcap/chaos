@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"path"
 	"sync"
 
 	"github.com/anishathalye/porcupine"
@@ -30,6 +31,8 @@ type Recorder struct {
 
 // NewRecorder creates a recorder to log the history to the file.
 func NewRecorder(name string) (*Recorder, error) {
+	os.MkdirAll(path.Dir(name), 0755)
+
 	f, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return nil, err

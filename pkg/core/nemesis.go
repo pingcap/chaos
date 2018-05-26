@@ -7,7 +7,6 @@ import (
 )
 
 // Nemesis injects failure and disturbs the database.
-// Nemesis is used in node, you can define your own nemesis and register it.
 type Nemesis interface {
 	// // SetUp initializes the nemesis
 	// SetUp(ctx context.Context, node string) error
