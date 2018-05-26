@@ -26,7 +26,7 @@ func CombinedOutput(ctx context.Context, node string, cmd string, args ...string
 	data, err := exec.CommandContext(ctx, "ssh", v...).CombinedOutput()
 	if err != nil {
 		// For debug
-		log.Printf("%v %v %v", v, data, err)
+		log.Printf("%v %q %v", v, data, err)
 	}
 	return data, err
 }
