@@ -3,14 +3,32 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"log"
 	"os/exec"
 )
 
 // Exec executes the cmd on the remote node.
 // Here we assume we can run with `ssh node cmd` directly
 // TODO: add a SSH config?
-func Exec(ctx context.Context, node string, cmd string) error {
-	return exec.CommandContext(ctx, "ssh", node, cmd).Run()
+func Exec(ctx context.Context, node string, cmd string, args ...string) error {
+	_, err := CombinedOutput(ctx, node, cmd, args...)
+	return err
+}
+
+// CombinedOutput executes the cmd on the remote node and returns its combined standard
+// output and standard error.
+func CombinedOutput(ctx context.Context, node string, cmd string, args ...string) ([]byte, error) {
+	v := []string{
+		node,
+		cmd,
+	}
+	v = append(v, args...)
+	data, err := exec.CommandContext(ctx, "ssh", v...).CombinedOutput()
+	if err != nil {
+		// For debug
+		log.Printf("%v %q %v", v, data, err)
+	}
+	return data, err
 }
 
 // Upload uploads files from local path to remote node path.

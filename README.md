@@ -6,11 +6,19 @@ Chaos is inspired by [jepsen](https://github.com/jepsen-io/jepsen) and uses [por
 
 ## Architecture
 
-Chaos runs your registered database on 5 nodes, and starts an agent in every node too. The agent will
-receive the command sent from the controller to control the service, like starting/stoping the service, 
-or using a nemesis to disturb the whole cluster.
+Chaos runs your registered database on 5 nodes, sends the command through `ssh` to control the service, like starting/stoping the service, or using a nemesis to disturb the whole cluster.
 
-![Architecture](./chaos.jpg)
+```
+           +-------------+
+  +------- | controller  | -------+
+  |        +-------------+        |
+  |          |    |    |          |
+  |     +----+    |    |          |
+  v     v         |    |          v
++----+----+----+  |    |  +----+----+
+| n1 | n2 | n3 | <+    +> | n4 | n5 |
++----+----+----+          +----+----+
+```
 
 ## Usage
 
@@ -26,10 +34,6 @@ In another shell, use `docker exec -it chaos-control bash` to enter the controll
 ```
 # build the node and your own chaos test
 make
-
-# deploy and start node agent
-./scripts/deploy_agent.sh
-./scripts/start_agent.sh
 
 # run you own chaos like
 ./bin/chaos-tidb

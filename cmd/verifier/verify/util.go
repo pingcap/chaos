@@ -17,10 +17,12 @@ func Verify(ctx context.Context, historyFile string, verfier_names string) {
 	for _, name := range strings.Split(verfier_names, ",") {
 		var verifier history.Verifier
 		switch name {
-		case "tidb-bank":
+		case "tidb_bank":
 			verifier = tidb.BankVerifier{}
-		case "tidb-bank-tso":
+		case "tidb_bank_tso":
 			verifier = tidb.BankTsoVerifier{}
+		case "":
+			continue
 		default:
 			log.Printf("%s is not supported", name)
 			continue

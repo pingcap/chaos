@@ -6,10 +6,16 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
-	"github.com/siddontang/chaos/pkg/node"
+
+	// register nemesis
+	_ "github.com/siddontang/chaos/pkg/nemesis"
+
+	// register tidb
+	_ "github.com/siddontang/chaos/db/tidb"
 )
 
 // Controller controls the whole cluster. It sends request to the database,
@@ -18,8 +24,7 @@ import (
 type Controller struct {
 	cfg *Config
 
-	nodes       []string
-	nodeClients []*node.Client
+	nodes []string
 
 	clients []core.Client
 
@@ -41,6 +46,10 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 		log.Fatalf("empty database")
 	}
 
+	if db := core.GetDB(cfg.DB); db == nil {
+		log.Fatalf("database %s is not registered", cfg.DB)
+	}
+
 	r, err := history.NewRecorder(cfg.History)
 	if err != nil {
 		log.Fatalf("prepare history failed %v", err)
@@ -55,8 +64,6 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 	for i := 1; i <= 5; i++ {
 		name := fmt.Sprintf("n%d", i)
 		c.nodes = append(c.nodes, name)
-		client := node.NewClient(name, fmt.Sprintf("%s:%d", name, cfg.NodePort))
-		c.nodeClients = append(c.nodeClients, client)
 		c.clients = append(c.clients, clientCreator.Create(name))
 	}
 
@@ -118,9 +125,10 @@ func (c *Controller) syncExec(f func(i int)) {
 func (c *Controller) setUpDB() {
 	log.Printf("begin to set up database")
 	c.syncExec(func(i int) {
-		client := c.nodeClients[i]
 		log.Printf("begin to set up database on %s", c.nodes[i])
-		if err := client.SetUpDB(c.cfg.DB, c.nodes); err != nil {
+		db := core.GetDB(c.cfg.DB)
+		err := db.SetUp(c.ctx, c.nodes, c.nodes[i])
+		if err != nil {
 			log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 		}
 	})
@@ -129,9 +137,9 @@ func (c *Controller) setUpDB() {
 func (c *Controller) tearDownDB() {
 	log.Printf("begin to tear down database")
 	c.syncExec(func(i int) {
-		client := c.nodeClients[i]
 		log.Printf("being to tear down database on %s", c.nodes[i])
-		if err := client.TearDownDB(c.cfg.DB, c.nodes); err != nil {
+		db := core.GetDB(c.cfg.DB)
+		if err := db.TearDown(c.ctx, c.nodes, c.nodes[i]); err != nil {
 			log.Printf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
 		}
 	})
@@ -228,11 +236,24 @@ func (c *Controller) onNemesisLoop(ctx context.Context, index int, op *core.Neme
 		return
 	}
 
-	nodeClient := c.nodeClients[index]
+	nemesis := core.GetNemesis(op.Name)
+	if nemesis == nil {
+		log.Printf("nemesis %s is not registered", op.Name)
+		return
+	}
+
 	node := c.nodes[index]
 
 	log.Printf("run nemesis %s on %s", op.Name, node)
-	if err := nodeClient.RunNemesis(op); err != nil {
+	if err := nemesis.Invoke(ctx, node, op.InvokeArgs...); err != nil {
+		log.Printf("run nemesis %s on %s failed: %v", op.Name, node, err)
+	}
+
+	select {
+	case <-time.After(op.RunTime):
+	case <-ctx.Done():
+	}
+	if err := nemesis.Recover(ctx, node, op.RecoverArgs...); err != nil {
 		log.Printf("run nemesis %s on %s failed: %v", op.Name, node, err)
 	}
 }

@@ -2,34 +2,31 @@ package util
 
 import (
 	"context"
-	"io/ioutil"
+	"fmt"
 	"net/url"
-	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
+	"time"
+
+	"github.com/siddontang/chaos/pkg/util/ssh"
 )
 
-// IsFileExist returns true if the file exists.
-func IsFileExist(name string) bool {
-	_, err := os.Stat(name)
+// IsFileExist runs on node and returns true if the file exists.
+func IsFileExist(ctx context.Context, node string, name string) bool {
+	err := ssh.Exec(ctx, node, "stat", name)
 	return err == nil
 }
 
-// IsProcessExist returns true if the porcess still exists.
-func IsProcessExist(pid int) bool {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return p.Signal(syscall.Signal(0)) == nil
+// IsProcessExist runs on node and returns true if the porcess still exists.
+func IsProcessExist(ctx context.Context, node string, pid int) bool {
+	err := ssh.Exec(ctx, node, "kill", fmt.Sprintf("-s 0 %d", pid))
+	return err == nil
 }
 
-// Wget downloads a string URL to the dest directory and returns the file path.
+// Wget runs on node, downloads a string URL to the dest directory and returns the file path.
 // SKips if the file already exists.
-func Wget(ctx context.Context, rawURL string, dest string) (string, error) {
+func Wget(ctx context.Context, node string, rawURL string, dest string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
@@ -41,45 +38,42 @@ func Wget(ctx context.Context, rawURL string, dest string) (string, error) {
 
 	fileName := path.Base(u.Path)
 	filePath := path.Join(dest, fileName)
-	if IsFileExist(filePath) {
+	if IsFileExist(ctx, node, filePath) {
 		return filePath, nil
 	}
 
-	os.MkdirAll(dest, 0755)
-	err = exec.CommandContext(ctx, "wget", "--tries", "20", "--waitretry", "60",
+	Mkdir(ctx, node, dest)
+	err = ssh.Exec(ctx, node, "wget", "--tries", "20", "--waitretry", "60",
 		"--retry-connrefused", "--dns-timeout", "60", "--connect-timeout", "60",
-		"--read-timeout", "60", "--directory-prefix", dest, rawURL).Run()
+		"--read-timeout", "60", "--directory-prefix", dest, rawURL)
 	return filePath, err
 }
 
-// InstallArchive downloads the URL and extracts the archive to the dest diretory.
+// InstallArchive runs on node, downloads the URL and extracts the archive to the dest diretory.
 // Supports zip, and tarball.
-func InstallArchive(ctx context.Context, rawURL string, dest string) error {
-	err := os.MkdirAll("/tmp/chaos", 0755)
+func InstallArchive(ctx context.Context, node string, rawURL string, dest string) error {
+	err := ssh.Exec(ctx, node, "mkdir", "-p", "/tmp/chaos")
 	if err != nil {
 		return err
 	}
 
-	var tmpDir string
-	if tmpDir, err = ioutil.TempDir("/tmp/chaos", "archive_"); err != nil {
-		return err
-	}
-
-	defer os.RemoveAll(tmpDir)
+	tmpDir := fmt.Sprintf("/tmp/chaos/archive_%d", time.Now().UnixNano())
+	Mkdir(ctx, node, tmpDir)
+	defer RemoveDir(ctx, node, tmpDir)
 
 	var name string
 	if strings.HasPrefix(rawURL, "file://") {
-		name = strings.Trim(rawURL, "file://")
+		name = rawURL[len("file://"):]
 	} else {
-		if name, err = Wget(ctx, rawURL, "/tmp/chaos"); err != nil {
+		if name, err = Wget(ctx, node, rawURL, "/tmp/chaos"); err != nil {
 			return err
 		}
 	}
 
 	if strings.HasSuffix(name, ".zip") {
-		err = exec.CommandContext(ctx, "unzip", "-d", tmpDir, name).Run()
+		err = ssh.Exec(ctx, node, "unzip", "-d", tmpDir, name)
 	} else {
-		err = exec.CommandContext(ctx, "tar", "-xf", name, "-C", tmpDir).Run()
+		err = ssh.Exec(ctx, node, "tar", "-xf", name, "-C", tmpDir)
 	}
 
 	if err != nil {
@@ -90,23 +84,64 @@ func InstallArchive(ctx context.Context, rawURL string, dest string) error {
 		return err
 	}
 
-	os.RemoveAll(dest)
-	os.MkdirAll(path.Dir(dest), 0755)
+	RemoveDir(ctx, node, dest)
+	Mkdir(ctx, node, path.Dir(dest))
 
-	var files []os.FileInfo
-	if files, err = ioutil.ReadDir(tmpDir); err != nil {
+	var files []string
+	if files, err = ReadDir(ctx, node, tmpDir); err != nil {
 		return err
-	} else if len(files) == 1 && files[0].IsDir() {
-		return os.Rename(path.Join(tmpDir, files[0].Name()), dest)
+	} else if len(files) == 1 && IsDir(ctx, node, path.Join(tmpDir, files[0])) {
+		return ssh.Exec(ctx, node, "mv", path.Join(tmpDir, files[0]), dest)
 	}
 
-	return os.Rename(tmpDir, dest)
+	return ssh.Exec(ctx, node, "mv", tmpDir, dest)
+}
+
+// ReadDir runs on node and lists the files of dir.
+func ReadDir(ctx context.Context, node string, dir string) ([]string, error) {
+	output, err := ssh.CombinedOutput(ctx, node, "ls", dir)
+	if err != nil {
+		return nil, err
+	}
+
+	seps := strings.Split(string(output), "\n")
+	v := make([]string, 0, len(seps))
+	for _, sep := range seps {
+		sep = strings.TrimSpace(sep)
+		if len(sep) > 0 {
+			v = append(v, sep)
+		}
+	}
+
+	return v, nil
+}
+
+// IsDir runs on node and checks path is directory or not.
+func IsDir(ctx context.Context, node string, path string) bool {
+	err := ssh.Exec(ctx, node, "test", "-d", path)
+	return err == nil
+}
+
+// Mkdir runs on node and makes a directory
+func Mkdir(ctx context.Context, node string, dir string) error {
+	return ssh.Exec(ctx, node, "mkdir", "-p", dir)
+}
+
+// RemoveDir runs on node and removes the diretory
+func RemoveDir(ctx context.Context, node string, dir string) error {
+	return ssh.Exec(ctx, node, "rm", "-rf", dir)
+}
+
+// WriteFile runs on node and writes data to file
+func WriteFile(ctx context.Context, node string, file string, data string) error {
+	return ssh.Exec(ctx, node, "echo", "-e", data, ">", file)
 }
 
 // DaemonOptions is the options to start a command in daemon mode.
 type DaemonOptions struct {
 	ChDir   string
 	PidFile string
+	NoClose bool
 }
 
 // NewDaemonOptions returns a default daemon options.
@@ -114,14 +149,18 @@ func NewDaemonOptions(chDir string, pidFile string) DaemonOptions {
 	return DaemonOptions{
 		ChDir:   chDir,
 		PidFile: pidFile,
+		NoClose: false,
 	}
 }
 
-// StartDaemon starts a daemon process with options
-func StartDaemon(ctx context.Context, opts DaemonOptions, cmd string, cmdArgs ...string) error {
+// StartDaemon runs on node and starts a daemon process with options
+func StartDaemon(ctx context.Context, node string, opts DaemonOptions, cmd string, cmdArgs ...string) error {
 	var args []string
 	args = append(args, "--start")
-	args = append(args, "--background", "--no-close")
+	args = append(args, "--background")
+	if opts.NoClose {
+		args = append(args, "--no-close")
+	}
 	args = append(args, "--make-pidfile")
 
 	processName := path.Base(cmd)
@@ -133,13 +172,11 @@ func StartDaemon(ctx context.Context, opts DaemonOptions, cmd string, cmdArgs ..
 	args = append(args, "--")
 	args = append(args, cmdArgs...)
 
-	c := exec.CommandContext(ctx, "start-stop-daemon", args...)
-
-	return c.Run()
+	return ssh.Exec(ctx, node, "start-stop-daemon", args...)
 }
 
-func parsePID(pidFile string) string {
-	data, err := ioutil.ReadFile(pidFile)
+func parsePID(ctx context.Context, node string, pidFile string) string {
+	data, err := ssh.CombinedOutput(ctx, node, "cat", pidFile)
 	if err != nil {
 		return ""
 	}
@@ -147,28 +184,28 @@ func parsePID(pidFile string) string {
 	return strings.TrimSpace(string(data))
 }
 
-// StopDaemon stops the daemon process.
-func StopDaemon(ctx context.Context, cmd string, pidFile string) error {
-	return stopDaemon(ctx, cmd, pidFile, "TERM")
+// StopDaemon runs on node and stops the daemon process.
+func StopDaemon(ctx context.Context, node string, cmd string, pidFile string) error {
+	return stopDaemon(ctx, node, cmd, pidFile, "TERM")
 }
 
-// KillDaemon kills the daemon process.
-func KillDaemon(ctx context.Context, cmd string, pidFile string) error {
-	return stopDaemon(ctx, cmd, pidFile, "KILL")
+// KillDaemon runs on node and kills the daemon process.
+func KillDaemon(ctx context.Context, node string, cmd string, pidFile string) error {
+	return stopDaemon(ctx, node, cmd, pidFile, "KILL")
 }
 
-func stopDaemon(ctx context.Context, cmd string, pidFile string, sig string) error {
+func stopDaemon(ctx context.Context, node string, cmd string, pidFile string, sig string) error {
 	name := path.Base(cmd)
 
-	return exec.CommandContext(ctx, "start-stop-daemon", "--stop", "--remove-pidfile",
-		"--pidfile", pidFile, "--oknodo", "--name", name, "--signal", sig).Run()
+	return ssh.Exec(ctx, node, "start-stop-daemon", "--stop", "--remove-pidfile",
+		"--pidfile", pidFile, "--oknodo", "--name", name, "--signal", sig)
 }
 
-// IsDaemonRunning returns whether the daemon is still running or not.
-func IsDaemonRunning(ctx context.Context, cmd string, pidFile string) bool {
+// IsDaemonRunning runs on node and returns whether the daemon is still running or not.
+func IsDaemonRunning(ctx context.Context, node string, cmd string, pidFile string) bool {
 	name := path.Base(cmd)
 
-	err := exec.CommandContext(ctx, "start-stop-daemon", "--status", "--pidfile", pidFile, "--name", name).Run()
+	err := ssh.Exec(ctx, node, "start-stop-daemon", "--status", "--pidfile", pidFile, "--name", name)
 
 	return err == nil
 }
