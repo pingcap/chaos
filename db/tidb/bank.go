@@ -45,6 +45,7 @@ func (c *bankClient) SetUp(ctx context.Context, nodes []string, node string) err
 		return nil
 	}
 
+	log.Printf("begin to create table accounts on node %s", node)
 	sql := `create table if not exists accounts
 			(id     int not null primary key,
 			balance bigint not null)`

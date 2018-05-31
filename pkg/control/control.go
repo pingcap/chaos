@@ -107,6 +107,8 @@ func (c *Controller) Run() {
 	c.tearDownDB()
 
 	c.recorder.Close()
+
+	log.Printf("finish test")
 }
 
 func (c *Controller) syncExec(f func(i int)) {
@@ -158,7 +160,7 @@ func (c *Controller) setUpClient() {
 }
 
 func (c *Controller) tearDownClient() {
-	log.Printf("begin to set up client")
+	log.Printf("begin to tear down client")
 	c.syncExec(func(i int) {
 		client := c.clients[i]
 		node := c.nodes[i]
@@ -172,6 +174,8 @@ func (c *Controller) tearDownClient() {
 func (c *Controller) onClientLoop(i int) {
 	client := c.clients[i]
 	node := c.nodes[i]
+
+	log.Printf("begin to run command on node %s", node)
 
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()

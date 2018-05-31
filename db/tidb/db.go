@@ -34,7 +34,8 @@ var (
 
 // db is the TiDB database.
 type db struct {
-	nodes []string
+	nodes          []string
+	installBlocker util.BlockRunner
 }
 
 // SetUp initializes the database.
@@ -46,15 +47,30 @@ func (db *db) SetUp(ctx context.Context, nodes []string, node string) error {
 
 	db.nodes = nodes
 
+	db.installBlocker.Init(len(nodes))
+
 	log.Printf("install archieve on node %s", node)
-	if err := util.InstallArchive(ctx, node, archiveURL, deployDir); err != nil {
+
+	var err error
+	db.installBlocker.Run(func() {
+		err = util.InstallArchive(ctx, node, archiveURL, deployDir)
+	})
+	if err != nil {
 		return err
 	}
 
 	util.Mkdir(ctx, node, path.Join(deployDir, "conf"))
 	util.Mkdir(ctx, node, path.Join(deployDir, "log"))
 
-	if err := util.WriteFile(ctx, node, pdConfig, strconv.Quote("[replication]\nmax-replicas=5")); err != nil {
+	pdCfs := []string{
+		"tick-interval=\"100ms\"",
+		"election-interval=\"500ms\"",
+		"tso-save-interval=\"500ms\"",
+		"[replication]",
+		"max-replicas=5",
+	}
+
+	if err := util.WriteFile(ctx, node, pdConfig, strconv.Quote(strings.Join(pdCfs, "\n"))); err != nil {
 		return err
 	}
 
@@ -161,8 +177,19 @@ func (db *db) start(ctx context.Context, node string, inSetUp bool) error {
 		return err
 	}
 
+	var err error
 	if inSetUp {
-		time.Sleep(30 * time.Second)
+		for i := 0; i < 12; i++ {
+			if err = ssh.Exec(ctx, node, "curl", fmt.Sprintf("http://%s:10080/status", node)); err == nil {
+				break
+			}
+			log.Printf("try to wait tidb run on %s", node)
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if !util.IsDaemonRunning(ctx, node, tidbBinary, tidbPID) {
