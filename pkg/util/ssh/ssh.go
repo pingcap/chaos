@@ -2,9 +2,14 @@ package ssh
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os/exec"
+)
+
+var (
+	verbose = flag.Bool("ssh-verbose", false, "show the verbose of SSH command")
 )
 
 // Exec executes the cmd on the remote node.
@@ -23,10 +28,15 @@ func CombinedOutput(ctx context.Context, node string, cmd string, args ...string
 		cmd,
 	}
 	v = append(v, args...)
+	if *verbose {
+		log.Printf("run %s %v on node %s", cmd, args, node)
+	}
 	data, err := exec.CommandContext(ctx, "ssh", v...).CombinedOutput()
 	if err != nil {
 		// For debug
-		log.Printf("%v %q %v", v, data, err)
+		if *verbose {
+			log.Printf("fail to run %v %q %v", v, data, err)
+		}
 	}
 	return data, err
 }
