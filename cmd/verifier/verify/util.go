@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"strings"
-	"sync"
 
 	"github.com/siddontang/chaos/db/tidb"
 	"github.com/siddontang/chaos/pkg/history"
@@ -33,28 +32,23 @@ func Verify(ctx context.Context, historyFile string, verfier_names string) {
 
 	childCtx, cancel := context.WithCancel(ctx)
 
-	var wg sync.WaitGroup
-	wg.Add(len(verifieres))
 	go func() {
-		wg.Wait()
-		cancel()
-	}()
-
-	for _, verifier := range verifieres {
-		// Verify may take a long time, we should quit ASAP if receive signal.
-		go func(verifier history.Verifier) {
-			defer wg.Done()
+		for _, verifier := range verifieres {
+			log.Printf("begin to check with %s", verifier.Name())
 			ok, err := verifier.Verify(historyFile)
 			if err != nil {
 				log.Fatalf("verify history failed %v", err)
 			}
 
 			if !ok {
-				log.Fatalf("history %s is not linearizable", historyFile)
+				log.Fatalf("%s: history %s is not linearizable", verifier.Name(), historyFile)
 			} else {
-				log.Printf("history %s is linearizable", historyFile)
+				log.Printf("%s: history %s is linearizable", verifier.Name(), historyFile)
 			}
-		}(verifier)
-	}
+		}
+
+		cancel()
+	}()
+
 	<-childCtx.Done()
 }

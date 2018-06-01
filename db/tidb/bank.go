@@ -278,6 +278,11 @@ func (BankVerifier) Verify(historyFile string) (bool, error) {
 	return history.VerifyHistory(historyFile, getBankModel(accountNum), bankParser{})
 }
 
+// Name returns the name of the verifier.
+func (BankVerifier) Name() string {
+	return "bank_verifier"
+}
+
 // BankTsoVerifier verifies the bank history.
 // Unlike BankVerifier using porcupine, it uses a direct way because we know every timestamp of the transaction.
 // So we can order all transactions with timetamp and replay them.
@@ -535,4 +540,9 @@ func (BankTsoVerifier) Verify(historyFile string) (bool, error) {
 	}
 
 	return verifyTsoEvents(events), nil
+}
+
+// Name returns the name of the verifier.
+func (BankTsoVerifier) Name() string {
+	return "bank_tso_verifier"
 }
