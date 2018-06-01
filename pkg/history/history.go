@@ -103,6 +103,7 @@ type RecordParser interface {
 // Verifier verifies the history.
 type Verifier interface {
 	Verify(historyFile string) (bool, error)
+	Name() string
 }
 
 // VerifyHistory checks the history file with model.

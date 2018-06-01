@@ -20,7 +20,7 @@ import (
 var (
 	requestCount = flag.Int("request-count", 500, "client test request count")
 	runTime      = flag.Duration("run-time", 10*time.Minute, "client test run time")
-	clientCase   = flag.String("case", "bank", "client test case, like bank")
+	clientCase   = flag.String("case", "bank", "client test case, like bank,multi_bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
 	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, tidb_bank,tidb_bank_tso")
@@ -44,6 +44,8 @@ func main() {
 	switch *clientCase {
 	case "bank":
 		creator = tidb.BankClientCreator{}
+	case "multi_bank":
+		creator = tidb.MultiBankClientCreator{}
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
