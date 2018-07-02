@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/siddontang/chaos/db/rawkv"
 	"github.com/siddontang/chaos/db/tidb"
 	"github.com/siddontang/chaos/pkg/history"
 )
@@ -20,6 +21,8 @@ func Verify(ctx context.Context, historyFile string, verfier_names string) {
 			verifier = tidb.BankVerifier{}
 		case "tidb_bank_tso":
 			verifier = tidb.BankTsoVerifier{}
+		case "rawkv_register":
+			verifier = rawkv.RegisterVerifier{}
 		case "":
 			continue
 		default:
