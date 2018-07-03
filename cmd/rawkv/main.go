@@ -1,20 +1,14 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"log"
-	"os"
-	"os/signal"
-	"strings"
-	"syscall"
 	"time"
 
-	"github.com/siddontang/chaos/cmd/verifier/verify"
+	"github.com/siddontang/chaos/cmd/util"
 	"github.com/siddontang/chaos/db/rawkv"
 	"github.com/siddontang/chaos/pkg/control"
 	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/nemesis"
 )
 
 var (
@@ -29,18 +23,14 @@ var (
 func main() {
 	flag.Parse()
 
-	cfg := &control.Config{
+	cfg := control.Config{
 		DB:           "rawkv",
 		RequestCount: *requestCount,
 		RunTime:      *runTime,
 		History:      *historyFile,
 	}
 
-	var (
-		creator     core.ClientCreator
-		nemesisGens []core.NemesisGenerator
-	)
-
+	var creator core.ClientCreator
 	switch *clientCase {
 	case "register":
 		creator = rawkv.RegisterClientCreator{}
@@ -48,39 +38,11 @@ func main() {
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
 
-	for _, name := range strings.Split(*nemesises, ",") {
-		var g core.NemesisGenerator
-		name := strings.TrimSpace(name)
-		if len(name) == 0 {
-			continue
-		}
-
-		switch name {
-		case "random_kill", "all_kill", "minor_kill", "major_kill":
-			g = nemesis.NewKillGenerator("tidb", name)
-		case "random_drop", "all_drop", "minor_drop", "major_drop":
-			g = nemesis.NewDropGenerator(name)
-		default:
-			log.Fatalf("invalid nemesis generator")
-		}
-
-		nemesisGens = append(nemesisGens, g)
+	suit := util.Suit{
+		Config:        cfg,
+		ClientCreator: creator,
+		VerifyNames:   *verifyNames,
+		Nemesises:     *nemesises,
 	}
-
-	c := control.NewController(cfg, creator, nemesisGens)
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		<-sigs
-		c.Close()
-		cancel()
-	}()
-
-	c.Run()
-
-	verify.Verify(ctx, *historyFile, *verifyNames)
+	suit.Run()
 }

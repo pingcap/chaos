@@ -2,7 +2,7 @@ default: build
 
 all: build
 
-build: chaos verifier
+build: chaos verifier rawkv
 
 chaos:
 	go build -o bin/chaos-tidb cmd/tidb/main.go
