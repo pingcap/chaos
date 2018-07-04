@@ -101,6 +101,7 @@ func newRegisterEvent(v interface{}, id uint) porcupine.Event {
 	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
 }
 
+// TODO: maybe we can put the paser under the package `pkg/model`.
 type registerParser struct {
 }
 
@@ -123,7 +124,7 @@ func (p registerParser) OnNoopResponse() interface{} {
 	return model.RegisterResponse{Err: fmt.Errorf("dummy error")}
 }
 
-// RegisterClientCreator creates a bank test client for tidb.
+// RegisterClientCreator creates a register test client for rawkv.
 type RegisterClientCreator struct {
 }
 
@@ -132,11 +133,11 @@ func (RegisterClientCreator) Create(node string) core.Client {
 	return &registerClient{}
 }
 
-// RegisterVerifier verifies the bank history.
+// RegisterVerifier verifies the register history.
 type RegisterVerifier struct {
 }
 
-// Verify verifies the bank history.
+// Verify verifies the register history.
 func (RegisterVerifier) Verify(historyFile string) (bool, error) {
 	return history.VerifyHistory(historyFile, model.RegisterModel(), registerParser{})
 }
