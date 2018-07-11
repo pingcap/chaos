@@ -56,7 +56,7 @@ func (c *registerClient) TearDown(ctx context.Context, nodes []string, node stri
 func (c *registerClient) invokeRead(ctx context.Context, r model.RegisterRequest) model.RegisterResponse {
 	val, err := c.db.Get(register)
 	if err != nil {
-		return model.RegisterResponse{Err: err}
+		return model.RegisterResponse{Unknown: true}
 	}
 	v, err := strconv.ParseInt(string(val), 10, 64)
 	if err != nil {
@@ -74,7 +74,7 @@ func (c *registerClient) Invoke(ctx context.Context, node string, r interface{})
 	val := fmt.Sprintf("%d", arg.Value)
 	err := c.db.Put(register, []byte(val))
 	if err != nil {
-		return model.RegisterResponse{Err: err}
+		return model.RegisterResponse{Unknown: true}
 	}
 	return model.RegisterResponse{}
 }

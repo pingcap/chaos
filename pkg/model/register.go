@@ -2,7 +2,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/anishathalye/porcupine"
 	"github.com/siddontang/chaos/pkg/history"
@@ -26,8 +25,8 @@ type RegisterRequest struct {
 
 // RegisterResponse is the response returned by a register.
 type RegisterResponse struct {
-	Err   error
-	Value int
+	Unknown bool
+	Value   int
 }
 
 // RegisterModel returns a read/write register model
@@ -44,7 +43,7 @@ func RegisterModel() porcupine.Model {
 
 			// read
 			if inp.Op == RegisterRead {
-				ok := out.Value == st || out.Err != nil
+				ok := out.Value == st || out.Unknown
 				return ok, st
 			}
 
@@ -72,14 +71,14 @@ func (p registerParser) OnRequest(data json.RawMessage) (interface{}, error) {
 func (p registerParser) OnResponse(data json.RawMessage) (interface{}, error) {
 	r := RegisterResponse{}
 	err := json.Unmarshal(data, &r)
-	if r.Err != nil {
+	if r.Unknown {
 		return nil, err
 	}
-	return r, err
+	return r, nil
 }
 
 func (p registerParser) OnNoopResponse() interface{} {
-	return RegisterResponse{Err: fmt.Errorf("dummy error")}
+	return RegisterResponse{Unknown: true}
 }
 
 // RegisterVerifier can verify a register history.
