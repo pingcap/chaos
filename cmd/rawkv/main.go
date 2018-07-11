@@ -17,7 +17,7 @@ var (
 	clientCase   = flag.String("case", "register", "client test case, like bank,multi_bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
-	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, rawkv_register")
+	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, register")
 )
 
 func main() {
