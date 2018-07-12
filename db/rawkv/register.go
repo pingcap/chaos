@@ -2,7 +2,6 @@ package rawkv
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -16,7 +15,6 @@ import (
 	// use mysql
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
 	"github.com/siddontang/chaos/pkg/model"
 )
 
@@ -58,7 +56,7 @@ func (c *registerClient) TearDown(ctx context.Context, nodes []string, node stri
 func (c *registerClient) invokeRead(ctx context.Context, r model.RegisterRequest) model.RegisterResponse {
 	val, err := c.db.Get(register)
 	if err != nil {
-		return model.RegisterResponse{Err: err}
+		return model.RegisterResponse{Unknown: true}
 	}
 	v, err := strconv.ParseInt(string(val), 10, 64)
 	if err != nil {
@@ -76,7 +74,7 @@ func (c *registerClient) Invoke(ctx context.Context, node string, r interface{})
 	val := fmt.Sprintf("%d", arg.Value)
 	err := c.db.Put(register, []byte(val))
 	if err != nil {
-		return model.RegisterResponse{Err: err}
+		return model.RegisterResponse{Unknown: true}
 	}
 	return model.RegisterResponse{}
 }
@@ -101,29 +99,6 @@ func newRegisterEvent(v interface{}, id uint) porcupine.Event {
 	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
 }
 
-// TODO: maybe we can put the paser under the package `pkg/model`.
-type registerParser struct {
-}
-
-func (p registerParser) OnRequest(data json.RawMessage) (interface{}, error) {
-	r := model.RegisterRequest{}
-	err := json.Unmarshal(data, &r)
-	return r, err
-}
-
-func (p registerParser) OnResponse(data json.RawMessage) (interface{}, error) {
-	r := model.RegisterResponse{}
-	err := json.Unmarshal(data, &r)
-	if r.Err != nil {
-		return nil, err
-	}
-	return r, err
-}
-
-func (p registerParser) OnNoopResponse() interface{} {
-	return model.RegisterResponse{Err: fmt.Errorf("dummy error")}
-}
-
 // RegisterClientCreator creates a register test client for rawkv.
 type RegisterClientCreator struct {
 }
@@ -131,18 +106,4 @@ type RegisterClientCreator struct {
 // Create creates a client.
 func (RegisterClientCreator) Create(node string) core.Client {
 	return &registerClient{}
-}
-
-// RegisterVerifier verifies the register history.
-type RegisterVerifier struct {
-}
-
-// Verify verifies the register history.
-func (RegisterVerifier) Verify(historyFile string) (bool, error) {
-	return history.VerifyHistory(historyFile, model.RegisterModel(), registerParser{})
-}
-
-// Name returns the name of the verifier.
-func (RegisterVerifier) Name() string {
-	return "register_verifier"
 }

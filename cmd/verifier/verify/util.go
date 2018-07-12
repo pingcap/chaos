@@ -5,9 +5,9 @@ import (
 	"log"
 	"strings"
 
-	"github.com/siddontang/chaos/db/rawkv"
 	"github.com/siddontang/chaos/db/tidb"
 	"github.com/siddontang/chaos/pkg/history"
+	"github.com/siddontang/chaos/pkg/model"
 )
 
 // Verify creates the verifier from verifer_names and verfies the history file.
@@ -21,8 +21,8 @@ func Verify(ctx context.Context, historyFile string, verfier_names string) {
 			verifier = tidb.BankVerifier{}
 		case "tidb_bank_tso":
 			verifier = tidb.BankTsoVerifier{}
-		case "rawkv_register":
-			verifier = rawkv.RegisterVerifier{}
+		case "register":
+			verifier = model.RegisterVerifier{}
 		case "":
 			continue
 		default:

@@ -1,7 +1,10 @@
 package model
 
 import (
+	"encoding/json"
+
 	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/history"
 )
 
 // Op is an operation.
@@ -22,8 +25,8 @@ type RegisterRequest struct {
 
 // RegisterResponse is the response returned by a register.
 type RegisterResponse struct {
-	Err   error
-	Value int
+	Unknown bool
+	Value   int
 }
 
 // RegisterModel returns a read/write register model
@@ -40,7 +43,7 @@ func RegisterModel() porcupine.Model {
 
 			// read
 			if inp.Op == RegisterRead {
-				ok := out.Value == st || out.Err != nil
+				ok := out.Value == st || out.Unknown
 				return ok, st
 			}
 
@@ -54,4 +57,40 @@ func RegisterModel() porcupine.Model {
 			return st1 == st2
 		},
 	}
+}
+
+type registerParser struct {
+}
+
+func (p registerParser) OnRequest(data json.RawMessage) (interface{}, error) {
+	r := RegisterRequest{}
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+func (p registerParser) OnResponse(data json.RawMessage) (interface{}, error) {
+	r := RegisterResponse{}
+	err := json.Unmarshal(data, &r)
+	if r.Unknown {
+		return nil, err
+	}
+	return r, nil
+}
+
+func (p registerParser) OnNoopResponse() interface{} {
+	return RegisterResponse{Unknown: true}
+}
+
+// RegisterVerifier can verify a register history.
+type RegisterVerifier struct {
+}
+
+// Verify verifies a register history.
+func (RegisterVerifier) Verify(historyFile string) (bool, error) {
+	return history.VerifyHistory(historyFile, RegisterModel(), registerParser{})
+}
+
+// Name returns the name of the verifier.
+func (RegisterVerifier) Name() string {
+	return "register_verifier"
 }
