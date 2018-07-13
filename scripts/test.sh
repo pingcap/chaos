@@ -15,6 +15,12 @@ for bin in $@; do
         nemeses=( random_kill  )
         verifiers=( register )
         ;;
+    'txnkv' )
+        suit=chaos-txnkv
+        cases=( register )
+        nemeses=( random_kill  )
+        verifiers=( register )
+        ;;
     '--help' )
         HELP=1
         ;;
@@ -30,6 +36,7 @@ if [ "$HELP" ]; then
     echo "usage: $0 [OPTION]"
     echo "  tidb                                                  Chaos test TiDB"
     echo "  rawkv                                                 Chaos test RawKV"
+    echo "  txnkv                                                 Chaos test TxnKV"
     echo "  --help                                                Display this message"
     exit 0
 fi
