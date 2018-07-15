@@ -1,4 +1,4 @@
-package rawkv
+package txnkv
 
 import (
 	"context"
@@ -6,10 +6,11 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/anishathalye/porcupine"
-	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/kv"
 	"github.com/pingcap/tidb/store/tikv"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/model"
@@ -17,17 +18,20 @@ import (
 
 var (
 	register = []byte("acc")
+
+	closeOnce = sync.Once{}
 )
 
 type registerClient struct {
-	db *tikv.RawKVClient
+	db kv.Storage
 	r  *rand.Rand
 }
 
 func (c *registerClient) SetUp(ctx context.Context, nodes []string, node string) error {
 	c.r = rand.New(rand.NewSource(time.Now().UnixNano()))
 	tikv.MaxConnectionCount = 128
-	db, err := tikv.NewRawKVClient([]string{fmt.Sprintf("%s:2379", node)}, config.Security{})
+	driver := tikv.Driver{}
+	db, err := driver.Open(fmt.Sprintf("tikv://%s:2379?disableGC=true", node))
 	if err != nil {
 		return err
 	}
@@ -41,25 +45,73 @@ func (c *registerClient) SetUp(ctx context.Context, nodes []string, node string)
 
 	log.Printf("begin to initial register on node %s", node)
 
-	db.Put(register, []byte("0"))
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
 
-	return nil
+	defer tx.Rollback()
+
+	if err = tx.Set(register, []byte("0")); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 func (c *registerClient) TearDown(ctx context.Context, nodes []string, node string) error {
-	return c.db.Close()
+	var err error
+	closeOnce.Do(func() {
+		// It's a workaround for `panic: close of closed channel`.
+		// `tikv.Driver.Open` will open the same instance if cluster id is
+		// the same.
+		//
+		// See more: https://github.com/pingcap/tidb/blob/
+		//           63c4562c27ad43165e6a0d5f890f33f3b1002b3f/store/tikv/kv.go#L95
+		err = c.db.Close()
+	})
+	return err
 }
 
 func (c *registerClient) invokeRead(ctx context.Context, r model.RegisterRequest) model.RegisterResponse {
-	val, err := c.db.Get(register)
+	tx, err := c.db.Begin()
 	if err != nil {
 		return model.RegisterResponse{Unknown: true}
 	}
+	defer tx.Rollback()
+
+	val, err := tx.Get(register)
+	if err != nil {
+		return model.RegisterResponse{Unknown: true}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return model.RegisterResponse{Unknown: true}
+	}
+
 	v, err := strconv.ParseInt(string(val), 10, 64)
 	if err != nil {
-		panic(fmt.Sprintf("invalid value: %s", val))
+		return model.RegisterResponse{Unknown: true}
 	}
 	return model.RegisterResponse{Value: int(v)}
+}
+
+func (c *registerClient) invokeWrite(ctx context.Context, r model.RegisterRequest) model.RegisterResponse {
+	tx, err := c.db.Begin()
+	if err != nil {
+		return model.RegisterResponse{Unknown: true}
+	}
+	defer tx.Rollback()
+
+	val := fmt.Sprintf("%d", r.Value)
+	if err = tx.Set(register, []byte(val)); err != nil {
+		return model.RegisterResponse{Unknown: true}
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return model.RegisterResponse{Unknown: true}
+	}
+	return model.RegisterResponse{}
 }
 
 func (c *registerClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
@@ -67,13 +119,7 @@ func (c *registerClient) Invoke(ctx context.Context, node string, r interface{})
 	if arg.Op == model.RegisterRead {
 		return c.invokeRead(ctx, arg)
 	}
-
-	val := fmt.Sprintf("%d", arg.Value)
-	err := c.db.Put(register, []byte(val))
-	if err != nil {
-		return model.RegisterResponse{Unknown: true}
-	}
-	return model.RegisterResponse{}
+	return c.invokeWrite(ctx, arg)
 }
 
 func (c *registerClient) NextRequest() interface{} {
@@ -96,7 +142,7 @@ func newRegisterEvent(v interface{}, id uint) porcupine.Event {
 	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
 }
 
-// RegisterClientCreator creates a register test client for rawkv.
+// RegisterClientCreator creates a register test client for txnkv.
 type RegisterClientCreator struct {
 }
 
