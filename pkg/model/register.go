@@ -87,7 +87,7 @@ type RegisterVerifier struct {
 
 // Verify verifies a register history.
 func (RegisterVerifier) Verify(historyFile string) (bool, error) {
-	return history.VerifyHistory(historyFile, RegisterModel(), registerParser{})
+	return history.IsLinearizable(historyFile, RegisterModel(), registerParser{})
 }
 
 // Name returns the name of the verifier.

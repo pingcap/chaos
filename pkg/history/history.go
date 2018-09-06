@@ -106,9 +106,9 @@ type Verifier interface {
 	Name() string
 }
 
-// VerifyHistory checks the history file with model.
+// IsLinearizable checks the history file meets liearizability or not with model.
 // False means the history is not linearizable.
-func VerifyHistory(historyFile string, m porcupine.Model, p RecordParser) (bool, error) {
+func IsLinearizable(historyFile string, m porcupine.Model, p RecordParser) (bool, error) {
 	events, err := ParseEvents(historyFile, p)
 	if err != nil {
 		return false, err

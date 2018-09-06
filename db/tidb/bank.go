@@ -275,7 +275,7 @@ type BankVerifier struct {
 
 // Verify verifies the bank history.
 func (BankVerifier) Verify(historyFile string) (bool, error) {
-	return history.VerifyHistory(historyFile, getBankModel(accountNum), bankParser{})
+	return history.IsLinearizable(historyFile, getBankModel(accountNum), bankParser{})
 }
 
 // Name returns the name of the verifier.

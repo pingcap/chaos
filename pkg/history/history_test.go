@@ -112,7 +112,7 @@ func TestHistory(t *testing.T) {
 
 	m := getNoopModel()
 	var ok bool
-	if ok, err = VerifyHistory(name, m, noopParser{}); err != nil {
+	if ok, err = IsLinearizable(name, m, noopParser{}); err != nil {
 		t.Fatalf("verify history failed %v", err)
 	}
 
