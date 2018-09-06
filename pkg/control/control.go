@@ -33,7 +33,8 @@ type Controller struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	proc int64
+	proc         int64
+	requestCount int64
 
 	recorder *history.Recorder
 }
@@ -180,9 +181,8 @@ func (c *Controller) onClientLoop(i int) {
 	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
 	defer cancel()
 
-	for i := 0; i < c.cfg.RequestCount; i++ {
-		procID := atomic.AddInt64(&c.proc, 1)
-
+	procID := atomic.AddInt64(&c.proc, 1)
+	for atomic.AddInt64(&c.requestCount, 1) <= int64(c.cfg.RequestCount) {
 		request := client.NextRequest()
 
 		if err := c.recorder.RecordRequest(procID, request); err != nil {
@@ -190,9 +190,18 @@ func (c *Controller) onClientLoop(i int) {
 		}
 
 		response := client.Invoke(ctx, node, request)
+		isUnknown := true
+		if v, ok := response.(core.UnknownResponse); ok {
+			isUnknown = v.IsUnknown()
+		}
 
 		if err := c.recorder.RecordResponse(procID, response); err != nil {
 			log.Fatalf("record response %v failed %v", response, err)
+		}
+
+		// If Unknown, we need to use another process ID.
+		if isUnknown {
+			procID = atomic.AddInt64(&c.proc, 1)
 		}
 
 		select {

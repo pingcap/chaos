@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
 )
 
@@ -30,6 +31,13 @@ type CasRegisterResponse struct {
 	Exists  bool // used for read
 	Value   int  // used for read
 	Unknown bool // used when operation times out
+}
+
+var _ core.UnknownResponse = (*CasRegisterResponse)(nil)
+
+// IsUnknown implements UnknownResponse interface
+func (r CasRegisterResponse) IsUnknown() bool {
+	return r.Unknown
 }
 
 // CasRegisterModel returns a cas register model

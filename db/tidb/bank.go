@@ -191,6 +191,13 @@ type bankResponse struct {
 	Unknown bool
 }
 
+var _ core.UnknownResponse = (*bankResponse)(nil)
+
+// IsUnknown implements UnknownResponse interface
+func (r bankResponse) IsUnknown() bool {
+	return r.Unknown
+}
+
 func newBankEvent(v interface{}, id uint) porcupine.Event {
 	if _, ok := v.(bankRequest); ok {
 		return porcupine.Event{Kind: porcupine.CallEvent, Value: v, Id: id}
@@ -408,7 +415,7 @@ func mergeTransferEvents(index int, events tsoEvents, e *tsoEvent) (tsoEvents, e
 	curBalance, _ := e.GetBalances(index)
 
 	if !checkBalance(index, events, curBalance) {
-		return nil, fmt.Errorf("invalid event %s", e)
+		return nil, fmt.Errorf("%d %v invalid event %s", index, events, e)
 	}
 
 	events = append(events, e)
