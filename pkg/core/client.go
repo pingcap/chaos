@@ -4,9 +4,10 @@ import (
 	"context"
 )
 
-// RequestGenerator generates a request.
-type RequestGenerator interface {
-	Generate() interface{}
+// UnknownResponse means we don't know wether this operation
+// succeeds or not.
+type UnknownResponse interface {
+	IsUnknown() bool
 }
 
 // Client applies the request to the database.
@@ -18,6 +19,7 @@ type Client interface {
 	// TearDown tears down the client.
 	TearDown(ctx context.Context, nodes []string, node string) error
 	// Invoke invokes a request to the database.
+	// Mostly, the return Response should implement UnknownResponse interface
 	Invoke(ctx context.Context, node string, r interface{}) interface{}
 	// NextRequest generates a request for latter Invoke.
 	NextRequest() interface{}

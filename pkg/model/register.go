@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
 )
 
@@ -27,6 +28,13 @@ type RegisterRequest struct {
 type RegisterResponse struct {
 	Unknown bool
 	Value   int
+}
+
+var _ core.UnknownResponse = (*RegisterResponse)(nil)
+
+// IsUnknown implements UnknownResponse interface
+func (r RegisterResponse) IsUnknown() bool {
+	return r.Unknown
 }
 
 // RegisterModel returns a read/write register model
