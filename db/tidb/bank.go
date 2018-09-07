@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"reflect"
 	"sort"
 	"time"
 
@@ -206,6 +205,20 @@ func newBankEvent(v interface{}, id uint) porcupine.Event {
 	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
 }
 
+func balancesEqual(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
 func getBankModel(n int) porcupine.Model {
 	return porcupine.Model{
 		Init: func() interface{} {
@@ -222,7 +235,7 @@ func getBankModel(n int) porcupine.Model {
 
 			if inp.Op == 0 {
 				// read
-				ok := out.Unknown || reflect.DeepEqual(st, out.Balances)
+				ok := out.Unknown || balancesEqual(st, out.Balances)
 				return ok, state
 			}
 
@@ -238,7 +251,9 @@ func getBankModel(n int) porcupine.Model {
 		},
 
 		Equal: func(state1, state2 interface{}) bool {
-			return reflect.DeepEqual(state1, state2)
+			st1 := state1.([]int64)
+			st2 := state2.([]int64)
+			return balancesEqual(st1, st2)
 		},
 	}
 }
