@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	pdBinary   = path.Join(deployDir, "./bin/pd-server")
-	tikvBinary = path.Join(deployDir, "./bin/tikv-server")
-	tidbBinary = path.Join(deployDir, "./bin/tidb-server")
+	pdBinary   = path.Join(deployDir, "./pd-server")
+	tikvBinary = path.Join(deployDir, "./tikv-server")
+	tidbBinary = path.Join(deployDir, "./tidb-server")
 
 	pdConfig   = path.Join(deployDir, "./conf/pd.toml")
 	tikvConfig = path.Join(deployDir, "./conf/tikv.toml")
