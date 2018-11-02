@@ -17,7 +17,7 @@ func TestRegisterModel(t *testing.T) {
 		{RegisterRequest{RegisterRead, 0}, 25, RegisterResponse{false, 100}, 75},
 		{RegisterRequest{RegisterRead, 0}, 30, RegisterResponse{false, 0}, 60},
 	}
-	res := porcupine.CheckOperations(RegisterModel(), ops)
+	res := porcupine.CheckOperations(convertModel(RegisterModel()), ops)
 	if res != true {
 		t.Fatal("expected operations to be linearizable")
 	}
@@ -31,7 +31,7 @@ func TestRegisterModel(t *testing.T) {
 		{porcupine.ReturnEvent, RegisterResponse{false, 100}, 1},
 		{porcupine.ReturnEvent, RegisterResponse{false, 0}, 0},
 	}
-	res = porcupine.CheckEvents(RegisterModel(), events)
+	res = porcupine.CheckEvents(convertModel(RegisterModel()), events)
 	if res != true {
 		t.Fatal("expected operations to be linearizable")
 	}
@@ -41,7 +41,7 @@ func TestRegisterModel(t *testing.T) {
 		{RegisterRequest{RegisterRead, 0}, 10, RegisterResponse{false, 200}, 30},
 		{RegisterRequest{RegisterRead, 0}, 40, RegisterResponse{false, 0}, 90},
 	}
-	res = porcupine.CheckOperations(RegisterModel(), ops)
+	res = porcupine.CheckOperations(convertModel(RegisterModel()), ops)
 	if res != false {
 		t.Fatal("expected operations to not be linearizable")
 	}
@@ -55,7 +55,7 @@ func TestRegisterModel(t *testing.T) {
 		{porcupine.ReturnEvent, RegisterResponse{false, 0}, 2},
 		{porcupine.ReturnEvent, RegisterResponse{false, 0}, 0},
 	}
-	res = porcupine.CheckEvents(RegisterModel(), events)
+	res = porcupine.CheckEvents(convertModel(RegisterModel()), events)
 	if res != false {
 		t.Fatal("expected operations to not be linearizable")
 	}

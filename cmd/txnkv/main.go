@@ -17,7 +17,6 @@ var (
 	clientCase   = flag.String("case", "register", "client test case, like bank,multi_bank")
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
-	verifyNames  = flag.String("verifiers", "", "verifier names, seperate by comma, txnkv_register")
 )
 
 func main() {
@@ -41,7 +40,7 @@ func main() {
 	suit := util.Suit{
 		Config:        cfg,
 		ClientCreator: creator,
-		VerifyNames:   *verifyNames,
+		ModelNames:    "register",
 		Nemesises:     *nemesises,
 	}
 	suit.Run()

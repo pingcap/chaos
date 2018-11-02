@@ -11,6 +11,25 @@ func checkTsoEvents(evnets []porcupine.Event) bool {
 	return verifyTsoEvents(tEvents)
 }
 
+func getBankModel(accountNum int) porcupine.Model {
+	m := bank{
+		accountNum: 2,
+	}
+	return porcupine.Model{
+		Init:  m.Init,
+		Step:  m.Step,
+		Equal: m.Equal,
+	}
+}
+
+func newBankEvent(v interface{}, id uint) porcupine.Event {
+	if _, ok := v.(bankRequest); ok {
+		return porcupine.Event{Kind: porcupine.CallEvent, Value: v, Id: id}
+	}
+
+	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
+}
+
 func TestBankVerify(t *testing.T) {
 	m := getBankModel(2)
 

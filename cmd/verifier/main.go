@@ -14,7 +14,7 @@ import (
 
 var (
 	historyFile = flag.String("history", "./history.log", "history file")
-	names       = flag.String("names", "", "verifier names, seperate by comma")
+	names       = flag.String("names", "", "model names, seperate by comma")
 	pprofAddr   = flag.String("pprof", "0.0.0.0:6060", "Pprof address")
 )
 

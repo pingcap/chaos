@@ -7,7 +7,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
 )
 
 type noopRequest struct {
@@ -22,26 +22,9 @@ type noopResponse struct {
 	Unknown bool
 }
 
-func getNoopModel() porcupine.Model {
-	return porcupine.Model{
-		Init: func() interface{} {
-			return 10
-		},
-		Step: func(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
-			st := state.(int)
-			inp := input.(noopRequest)
-			out := output.(noopResponse)
-
-			if inp.Op == 0 {
-				// read
-				ok := out.Unknown || st == out.Value
-				return ok, state
-			}
-
-			// for write
-			return out.Ok || out.Unknown, inp.Value
-		},
-	}
+type action struct {
+	proc int64
+	op   interface{}
 }
 
 type noopParser struct {
@@ -66,7 +49,7 @@ func (p noopParser) OnNoopResponse() interface{} {
 	return noopResponse{Unknown: true}
 }
 
-func TestHistory(t *testing.T) {
+func TestRecordAndReadHistory(t *testing.T) {
 	tmpDir, err := ioutil.TempDir(".", "var")
 	if err != nil {
 		t.Fatalf("create temp dir failed %v", err)
@@ -83,14 +66,11 @@ func TestHistory(t *testing.T) {
 
 	defer r.Close()
 
-	actions := []struct {
-		proc int64
-		op   interface{}
-	}{
+	actions := []action{
 		{1, noopRequest{Op: 0}},
 		{1, noopResponse{Value: 10}},
 		{2, noopRequest{Op: 1, Value: 15}},
-		{2, noopResponse{Unknown: true}},
+		{2, noopResponse{Value: 15}},
 		{3, noopRequest{Op: 0}},
 		{3, noopResponse{Value: 15}},
 	}
@@ -108,15 +88,136 @@ func TestHistory(t *testing.T) {
 		}
 	}
 
-	r.Close()
-
-	m := getNoopModel()
-	var ok bool
-	if ok, err = IsLinearizable(name, m, noopParser{}); err != nil {
-		t.Fatalf("verify history failed %v", err)
+	historyOps, err := ReadHistory(name, noopParser{})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if !ok {
-		t.Fatal("must be linearizable")
+	tbl := [][]core.Operation{historyOps, r.Operations()}
+
+	for _, ops := range tbl {
+		if len(ops) != len(actions) {
+			t.Fatalf("actions %v mismatchs ops %v", actions, ops)
+		}
+
+		for idx, ac := range actions {
+			switch v := ac.op.(type) {
+			case noopRequest:
+				a, ok := ops[idx].Data.(noopRequest)
+				if !ok {
+					t.Fatalf("unexpected: %#v", ops[idx])
+				}
+				if a != v {
+					t.Fatalf("actions %#v mismatchs ops %#v", a, ops[idx])
+				}
+			case noopResponse:
+				a, ok := ops[idx].Data.(noopResponse)
+				if !ok {
+					t.Fatalf("unexpected: %#v", ops[idx])
+				}
+				if a != v {
+					t.Fatalf("actions %#v mismatchs ops %#v", a, ops[idx])
+				}
+			}
+		}
+	}
+}
+
+func TestCompleteOperation(t *testing.T) {
+	cases := []struct {
+		ops     []core.Operation
+		compOps []core.Operation
+	}{
+		// A complete history of operations.
+		{
+			ops: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 10}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.ReturnOperation, 2, noopResponse{Value: 15}},
+			},
+			compOps: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 10}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.ReturnOperation, 2, noopResponse{Value: 15}},
+			},
+		},
+		// A complete but repeated proc operations.
+		{
+			ops: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 10}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.ReturnOperation, 2, noopResponse{Value: 15}},
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 15}},
+			},
+			compOps: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 10}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.ReturnOperation, 2, noopResponse{Value: 15}},
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Value: 15}},
+			},
+		},
+
+		// Pending requests.
+		{
+			ops: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, nil},
+			},
+			compOps: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Unknown: true}},
+			},
+		},
+
+		// Missing a response
+		{
+			ops: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+			},
+			compOps: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.ReturnOperation, 1, noopResponse{Unknown: true}},
+			},
+		},
+
+		// A complex out of order history.
+		{
+			ops: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.InvokeOperation, 3, noopRequest{Op: 0}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.ReturnOperation, 2, nil},
+				{core.InvokeOperation, 4, noopRequest{Op: 1, Value: 16}},
+				{core.ReturnOperation, 3, nil},
+			},
+			compOps: []core.Operation{
+				{core.InvokeOperation, 1, noopRequest{Op: 0}},
+				{core.InvokeOperation, 3, noopRequest{Op: 0}},
+				{core.InvokeOperation, 2, noopRequest{Op: 1, Value: 15}},
+				{core.InvokeOperation, 4, noopRequest{Op: 1, Value: 16}},
+				{core.ReturnOperation, 1, noopResponse{Unknown: true}},
+				{core.ReturnOperation, 2, noopResponse{Unknown: true}},
+				{core.ReturnOperation, 3, noopResponse{Unknown: true}},
+				{core.ReturnOperation, 4, noopResponse{Unknown: true}},
+			},
+		},
+	}
+
+	for i, cs := range cases {
+		compOps, err := CompleteOperations(cs.ops, noopParser{})
+		if err != nil {
+			t.Fatalf("err: %s, case %#v", err, cs)
+		}
+		for idx, op := range compOps {
+			if op != cs.compOps[idx] {
+				t.Fatalf("op %#v, compOps %#v, case %d", op, cs.compOps[idx], i)
+			}
+		}
 	}
 }

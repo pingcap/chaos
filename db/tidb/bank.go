@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
+	pchecker "github.com/siddontang/chaos/pkg/check/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
+	"github.com/siddontang/chaos/pkg/history"
 
 	// use mysql
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
 )
 
 const (
@@ -197,14 +198,6 @@ func (r bankResponse) IsUnknown() bool {
 	return r.Unknown
 }
 
-func newBankEvent(v interface{}, id uint) porcupine.Event {
-	if _, ok := v.(bankRequest); ok {
-		return porcupine.Event{Kind: porcupine.CallEvent, Value: v, Id: id}
-	}
-
-	return porcupine.Event{Kind: porcupine.ReturnEvent, Value: v, Id: id}
-}
-
 func balancesEqual(a, b []int64) bool {
 	if len(a) != len(b) {
 		return false
@@ -219,54 +212,67 @@ func balancesEqual(a, b []int64) bool {
 	return true
 }
 
-func getBankModel(n int) porcupine.Model {
-	return porcupine.Model{
-		Init: func() interface{} {
-			v := make([]int64, n)
-			for i := 0; i < n; i++ {
-				v[i] = initBalance
-			}
-			return v
-		},
-		Step: func(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
-			st := state.([]int64)
-			inp := input.(bankRequest)
-			out := output.(bankResponse)
+type bank struct {
+	accountNum int
+}
 
-			if inp.Op == 0 {
-				// read
-				ok := out.Unknown || balancesEqual(st, out.Balances)
-				return ok, state
-			}
+func (b bank) Init() interface{} {
+	v := make([]int64, b.accountNum)
+	for i := 0; i < b.accountNum; i++ {
+		v[i] = initBalance
+	}
+	return v
+}
 
-			// for transfer
-			if !out.Ok && !out.Unknown {
-				return true, state
-			}
+func (bank) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+	st := state.([]int64)
+	inp := input.(bankRequest)
+	out := output.(bankResponse)
 
-			newSt := append([]int64{}, st...)
-			newSt[inp.From] -= inp.Amount
-			newSt[inp.To] += inp.Amount
-			return out.Ok || out.Unknown, newSt
-		},
+	if inp.Op == 0 {
+		// read
+		ok := out.Unknown || balancesEqual(st, out.Balances)
+		return ok, state
+	}
 
-		Equal: func(state1, state2 interface{}) bool {
-			st1 := state1.([]int64)
-			st2 := state2.([]int64)
-			return balancesEqual(st1, st2)
-		},
+	// for transfer
+	if !out.Ok && !out.Unknown {
+		return true, state
+	}
+
+	newSt := append([]int64{}, st...)
+	newSt[inp.From] -= inp.Amount
+	newSt[inp.To] += inp.Amount
+	return out.Ok || out.Unknown, newSt
+}
+
+func (bank) Equal(state1, state2 interface{}) bool {
+	st1 := state1.([]int64)
+	st2 := state2.([]int64)
+	return balancesEqual(st1, st2)
+}
+
+func (bank) Name() string {
+	return "tidb_bank"
+}
+
+// BankModel is the model of bank in TiDB
+func BankModel() core.Model {
+	return bank{
+		accountNum: accountNum,
 	}
 }
 
-type bankParser struct {
-}
+type bankParser struct{}
 
+// OnRequest impls history.RecordParser.OnRequest
 func (p bankParser) OnRequest(data json.RawMessage) (interface{}, error) {
 	r := bankRequest{}
 	err := json.Unmarshal(data, &r)
 	return r, err
 }
 
+// OnResponse impls history.RecordParser.OnRequest
 func (p bankParser) OnResponse(data json.RawMessage) (interface{}, error) {
 	r := bankResponse{}
 	err := json.Unmarshal(data, &r)
@@ -276,8 +282,14 @@ func (p bankParser) OnResponse(data json.RawMessage) (interface{}, error) {
 	return r, err
 }
 
+// OnNoopResponse impls history.RecordParser.OnRequest
 func (p bankParser) OnNoopResponse() interface{} {
 	return bankResponse{Unknown: true}
+}
+
+// BankParser parses a history of bank operations.
+func BankParser() history.RecordParser {
+	return bankParser{}
 }
 
 // BankClientCreator creates a bank test client for tidb.
@@ -289,26 +301,6 @@ func (BankClientCreator) Create(node string) core.Client {
 	return &bankClient{
 		accountNum: accountNum,
 	}
-}
-
-// BankVerifier verifies the bank history.
-type BankVerifier struct {
-}
-
-// Verify verifies the bank history.
-func (BankVerifier) Verify(historyFile string) (bool, error) {
-	return history.IsLinearizable(historyFile, getBankModel(accountNum), bankParser{})
-}
-
-// Name returns the name of the verifier.
-func (BankVerifier) Name() string {
-	return "bank_verifier"
-}
-
-// BankTsoVerifier verifies the bank history.
-// Unlike BankVerifier using porcupine, it uses a direct way because we know every timestamp of the transaction.
-// So we can order all transactions with timetamp and replay them.
-type BankTsoVerifier struct {
 }
 
 type tsoEvent struct {
@@ -349,15 +341,7 @@ func (s tsoEvents) Len() int           { return len(s) }
 func (s tsoEvents) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s tsoEvents) Less(i, j int) bool { return s[i].Tso < s[j].Tso }
 
-func parseTsoEvents(historyFile string) (tsoEvents, error) {
-	events, err := history.ParseEvents(historyFile, bankParser{})
-	if err != nil {
-		return nil, err
-	}
-
-	return generateTsoEvents(events), nil
-}
-
+// TODO: remove porcupine dependence.
 func generateTsoEvents(events []porcupine.Event) tsoEvents {
 	tEvents := make(tsoEvents, 0, len(events))
 
@@ -554,17 +538,27 @@ func verifyTsoEvents(events tsoEvents) bool {
 	return true
 }
 
-// Verify verifes the bank history.
-func (BankTsoVerifier) Verify(historyFile string) (bool, error) {
-	events, err := parseTsoEvents(historyFile)
+// bankTsoChecker uses a direct way because we know every timestamp of the transaction.
+// So we can order all transactions with timetamp and replay them.
+type bankTsoChecker struct {
+}
+
+// Check checks the bank history.
+func (bankTsoChecker) Check(_ core.Model, ops []core.Operation) (bool, error) {
+	events, err := pchecker.ConvertOperationsToEvents(ops)
 	if err != nil {
 		return false, err
 	}
-
-	return verifyTsoEvents(events), nil
+	tEvents := generateTsoEvents(events)
+	return verifyTsoEvents(tEvents), nil
 }
 
 // Name returns the name of the verifier.
-func (BankTsoVerifier) Name() string {
-	return "bank_tso_verifier"
+func (bankTsoChecker) Name() string {
+	return "tidb_bank_tso_checker"
+}
+
+// BankTsoChecker checks the bank history with the help of tso.
+func BankTsoChecker() core.Checker {
+	return bankTsoChecker{}
 }

@@ -3,7 +3,6 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/anishathalye/porcupine"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
 )
@@ -37,34 +36,41 @@ func (r RegisterResponse) IsUnknown() bool {
 	return r.Unknown
 }
 
-// RegisterModel returns a read/write register model
-func RegisterModel() porcupine.Model {
-	return porcupine.Model{
-		Init: func() interface{} {
-			state := 0
-			return state
-		},
-		Step: func(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
-			st := state.(int)
-			inp := input.(RegisterRequest)
-			out := output.(RegisterResponse)
+type register struct{}
 
-			// read
-			if inp.Op == RegisterRead {
-				ok := out.Value == st || out.Unknown
-				return ok, st
-			}
+func (register) Init() interface{} {
+	state := 0
+	return state
+}
 
-			// write
-			return true, inp.Value
-		},
+func (register) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+	st := state.(int)
+	inp := input.(RegisterRequest)
+	out := output.(RegisterResponse)
 
-		Equal: func(state1, state2 interface{}) bool {
-			st1 := state1.(int)
-			st2 := state2.(int)
-			return st1 == st2
-		},
+	// read
+	if inp.Op == RegisterRead {
+		ok := out.Value == st || out.Unknown
+		return ok, st
 	}
+
+	// write
+	return true, inp.Value
+}
+
+func (register) Equal(state1, state2 interface{}) bool {
+	st1 := state1.(int)
+	st2 := state2.(int)
+	return st1 == st2
+}
+
+func (register) Name() string {
+	return "register"
+}
+
+// RegisterModel returns a read/write register model
+func RegisterModel() core.Model {
+	return register{}
 }
 
 type registerParser struct {
@@ -89,16 +95,7 @@ func (p registerParser) OnNoopResponse() interface{} {
 	return RegisterResponse{Unknown: true}
 }
 
-// RegisterVerifier can verify a register history.
-type RegisterVerifier struct {
-}
-
-// Verify verifies a register history.
-func (RegisterVerifier) Verify(historyFile string) (bool, error) {
-	return history.IsLinearizable(historyFile, RegisterModel(), registerParser{})
-}
-
-// Name returns the name of the verifier.
-func (RegisterVerifier) Name() string {
-	return "register_verifier"
+// RegisterParser parses Register history.
+func RegisterParser() history.RecordParser {
+	return registerParser{}
 }
