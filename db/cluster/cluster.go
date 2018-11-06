@@ -19,9 +19,9 @@ const (
 )
 
 var (
-	pdBinary   = path.Join(deployDir, "./pd-server")
-	tikvBinary = path.Join(deployDir, "./tikv-server")
-	tidbBinary = path.Join(deployDir, "./tidb-server")
+	pdBinary   = path.Join(deployDir, "./bin/pd-server")
+	tikvBinary = path.Join(deployDir, "./bin/tikv-server")
+	tidbBinary = path.Join(deployDir, "./bin/tidb-server")
 
 	pdConfig   = path.Join(deployDir, "./conf/pd.toml")
 	tikvConfig = path.Join(deployDir, "./conf/tikv.toml")
@@ -136,6 +136,17 @@ func (cluster *Cluster) start(ctx context.Context, node string, inSetUp bool) er
 
 	if !util.IsDaemonRunning(ctx, node, pdBinary, pdPID) {
 		return fmt.Errorf("fail to start pd on node %s", node)
+	}
+
+	// Before starting TiKV, we should ensure PD cluster is ready.
+	for {
+		// `--fail`, none zero exit code on server errors.
+		_, err := ssh.CombinedOutput(ctx, node, "curl", "--fail localhost:2379/pd/api/v1/members")
+		if err == nil {
+			break
+		}
+		log.Println("wait pd cluster...")
+		time.Sleep(1 * time.Second)
 	}
 
 	pdEndpoints := make([]string, len(cluster.nodes))
