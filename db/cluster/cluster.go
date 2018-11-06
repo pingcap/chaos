@@ -140,7 +140,7 @@ func (cluster *Cluster) start(ctx context.Context, node string, inSetUp bool) er
 
 	// Before starting TiKV, we should ensure PD cluster is ready.
 	for {
-		// `--fail`, none zero exit code on server errors.
+		// `--fail`, non-zero exit code on server errors.
 		_, err := ssh.CombinedOutput(ctx, node, "curl", "--fail localhost:2379/pd/api/v1/members")
 		if err == nil {
 			break
