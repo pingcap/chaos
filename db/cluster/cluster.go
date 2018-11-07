@@ -16,6 +16,8 @@ import (
 const (
 	archiveURL = "http://download.pingcap.org/tidb-latest-linux-amd64.tar.gz"
 	deployDir  = "/opt/tidb"
+
+	waitPDCount = 10
 )
 
 var (
@@ -138,20 +140,26 @@ func (cluster *Cluster) start(ctx context.Context, node string, inSetUp bool) er
 		return fmt.Errorf("fail to start pd on node %s", node)
 	}
 
-	// Before starting TiKV, we should ensure PD cluster is ready.
-	for {
-		// `--fail`, non-zero exit code on server errors.
-		_, err := ssh.CombinedOutput(ctx, node, "curl", "--fail localhost:2379/pd/api/v1/members")
-		if err == nil {
-			break
-		}
-		log.Println("wait pd cluster...")
-		time.Sleep(1 * time.Second)
-	}
-
 	pdEndpoints := make([]string, len(cluster.nodes))
 	for i, n := range cluster.nodes {
 		pdEndpoints[i] = fmt.Sprintf("%s:2379", n)
+	}
+
+	// Before starting TiKV, we should ensure PD cluster is ready.
+WAIT:
+	for i := 0; i < waitPDCount; i++ {
+		for _, ep := range pdEndpoints {
+			// Member API works when PD cluster is ready.
+			memberAPI := fmt.Sprintf("%s/pd/api/v1/members", ep)
+			// `--fail`, non-zero exit code on server errors.
+			_, err := ssh.CombinedOutput(ctx, node, "curl", "--fail", memberAPI)
+			if err == nil {
+				log.Println("PD cluster is ready")
+				break WAIT
+			}
+		}
+		log.Println("waiting PD cluster...")
+		time.Sleep(1 * time.Second)
 	}
 
 	tikvArgs := []string{
