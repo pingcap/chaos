@@ -3,30 +3,28 @@ package history
 import (
 	"bufio"
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"path"
+	"sort"
 	"sync"
 
-	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
 )
 
-// Operation action
-const (
-	InvokeOperation = "call"
-	ReturnOperation = "return"
-)
-
-type operation struct {
+// opRecord is similar to core.Operation, but it stores data in json.RawMessage
+// instead of interface{} in order to marshal into bytes.
+type opRecord struct {
 	Action string          `json:"action"`
 	Proc   int64           `json:"proc"`
 	Data   json.RawMessage `json:"data"`
 }
 
-// Recorder records operation histogry.
+// Recorder records operation history.
 type Recorder struct {
 	sync.Mutex
-	f *os.File
+	f   *os.File
+	ops []core.Operation
 }
 
 // NewRecorder creates a recorder to log the history to the file.
@@ -48,21 +46,22 @@ func (r *Recorder) Close() {
 
 // RecordRequest records the request.
 func (r *Recorder) RecordRequest(proc int64, op interface{}) error {
-	return r.record(proc, InvokeOperation, op)
+	return r.record(proc, core.InvokeOperation, op)
 }
 
 // RecordResponse records the response.
 func (r *Recorder) RecordResponse(proc int64, op interface{}) error {
-	return r.record(proc, ReturnOperation, op)
+	return r.record(proc, core.ReturnOperation, op)
 }
 
 func (r *Recorder) record(proc int64, action string, op interface{}) error {
+	// Marshal the op to json in order to store it in a history file.
 	data, err := json.Marshal(op)
 	if err != nil {
 		return err
 	}
 
-	v := operation{
+	v := opRecord{
 		Action: action,
 		Proc:   proc,
 		Data:   json.RawMessage(data),
@@ -84,15 +83,27 @@ func (r *Recorder) record(proc int64, action string, op interface{}) error {
 		return err
 	}
 
+	// Store the op in core.Operation directly.
+	coreOp := core.Operation{
+		Action: action,
+		Proc:   proc,
+		Data:   op,
+	}
+	r.ops = append(r.ops, coreOp)
 	return nil
+}
+
+// Operations returns operations that it records
+func (r *Recorder) Operations() []core.Operation {
+	return r.ops
 }
 
 // RecordParser is to parses the operation data.
 type RecordParser interface {
-	// OnRequest parses the request record.
+	// OnRequest parses an operation data to model's input.
 	OnRequest(data json.RawMessage) (interface{}, error)
-	// OnResponse parses the response record. Return nil means
-	// the operation has an infinite end time.
+	// OnResponse parses an operation data to model's output.
+	// Return nil means the operation has an infinite end time.
 	// E.g, we meet timeout for a operation.
 	OnResponse(data json.RawMessage) (interface{}, error)
 	// If we have some infinite operations, we should return a
@@ -100,89 +111,93 @@ type RecordParser interface {
 	OnNoopResponse() interface{}
 }
 
-// Verifier verifies the history.
-type Verifier interface {
-	Verify(historyFile string) (bool, error)
-	Name() string
-}
-
-// IsLinearizable checks the history file meets liearizability or not with model.
-// False means the history is not linearizable.
-func IsLinearizable(historyFile string, m porcupine.Model, p RecordParser) (bool, error) {
-	events, err := ParseEvents(historyFile, p)
-	if err != nil {
-		return false, err
-	}
-	log.Printf("begin to verify %d events", len(events))
-	return porcupine.CheckEvents(m, events), nil
-}
-
-// ParseEvents parses the history and returns a procupine Event list.
-func ParseEvents(historyFile string, p RecordParser) ([]porcupine.Event, error) {
+// ReadHistory reads operations from a history file.
+func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, error) {
 	f, err := os.Open(historyFile)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	procID := map[int64]uint{}
-	id := uint(0)
-
-	events := make([]porcupine.Event, 0, 1024)
+	ops := make([]core.Operation, 0, 1024)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		var op operation
-		if err = json.Unmarshal(scanner.Bytes(), &op); err != nil {
+		var record opRecord
+		if err = json.Unmarshal(scanner.Bytes(), &record); err != nil {
 			return nil, err
 		}
 
-		var value interface{}
-		if op.Action == InvokeOperation {
-			if value, err = p.OnRequest(op.Data); err != nil {
+		var data interface{}
+		if record.Action == core.InvokeOperation {
+			if data, err = p.OnRequest(record.Data); err != nil {
 				return nil, err
 			}
-
-			event := porcupine.Event{
-				Kind:  porcupine.CallEvent,
-				Id:    id,
-				Value: value,
-			}
-			events = append(events, event)
-			procID[op.Proc] = id
-			id++
 		} else {
-			if value, err = p.OnResponse(op.Data); err != nil {
+			if data, err = p.OnResponse(record.Data); err != nil {
 				return nil, err
 			}
-
-			if value == nil {
-				continue
-			}
-
-			matchID := procID[op.Proc]
-			delete(procID, op.Proc)
-			event := porcupine.Event{
-				Kind:  porcupine.ReturnEvent,
-				Id:    matchID,
-				Value: value,
-			}
-			events = append(events, event)
 		}
+
+		op := core.Operation{
+			Action: record.Action,
+			Proc:   record.Proc,
+			Data:   data,
+		}
+		ops = append(ops, op)
 	}
 
 	if err = scanner.Err(); err != nil {
 		return nil, err
 	}
 
-	for _, id := range procID {
-		response := p.OnNoopResponse()
-		event := porcupine.Event{
-			Kind:  porcupine.ReturnEvent,
-			Id:    id,
-			Value: response,
+	return ops, nil
+}
+
+// int64Slice attaches the methods of Interface to []int, sorting in increasing order.
+type int64Slice []int64
+
+func (p int64Slice) Len() int           { return len(p) }
+func (p int64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p int64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+// CompleteOperations completes the history of operation.
+func CompleteOperations(ops []core.Operation, p RecordParser) ([]core.Operation, error) {
+	procID := map[int64]struct{}{}
+	compOps := make([]core.Operation, 0, len(ops))
+	for _, op := range ops {
+		if op.Action == core.InvokeOperation {
+			if _, ok := procID[op.Proc]; ok {
+				return nil, fmt.Errorf("missing return, op: %v", op)
+			}
+			procID[op.Proc] = struct{}{}
+			compOps = append(compOps, op)
+		} else {
+			if _, ok := procID[op.Proc]; !ok {
+				return nil, fmt.Errorf("missing invoke, op: %v", op)
+			}
+			if op.Data == nil {
+				continue
+			}
+			delete(procID, op.Proc)
+			compOps = append(compOps, op)
 		}
-		events = append(events, event)
 	}
 
-	return events, nil
+	// To get a determined complete history of operations, we sort procIDs.
+	var keys []int64
+	for k := range procID {
+		keys = append(keys, k)
+	}
+	sort.Sort(int64Slice(keys))
+
+	for _, proc := range keys {
+		op := core.Operation{
+			Action: core.ReturnOperation,
+			Proc:   proc,
+			Data:   p.OnNoopResponse(),
+		}
+		compOps = append(compOps, op)
+	}
+
+	return compOps, nil
 }

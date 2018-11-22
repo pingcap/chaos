@@ -18,8 +18,8 @@ import (
 type Suit struct {
 	control.Config
 	core.ClientCreator
-	// verifier names, seperate by comma.
-	VerifyNames string
+	// model names, seperate by comma.
+	ModelNames string
 	// nemesis, seperated by comma.
 	Nemesises string
 }
@@ -61,5 +61,5 @@ func (suit *Suit) Run() {
 
 	c.Run()
 
-	verify.Verify(ctx, suit.Config.History, suit.VerifyNames)
+	verify.Verify(ctx, suit.Config.History, suit.ModelNames)
 }

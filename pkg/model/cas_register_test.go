@@ -4,7 +4,16 @@ import (
 	"testing"
 
 	"github.com/anishathalye/porcupine"
+	"github.com/siddontang/chaos/pkg/core"
 )
+
+func convertModel(m core.Model) porcupine.Model {
+	return porcupine.Model{
+		Init:  m.Init,
+		Step:  m.Step,
+		Equal: m.Equal,
+	}
+}
 
 func TestCasRegisterModel(t *testing.T) {
 	events := []porcupine.Event{
@@ -19,7 +28,7 @@ func TestCasRegisterModel(t *testing.T) {
 		{Kind: porcupine.ReturnEvent, Value: CasRegisterResponse{Ok: true}, Id: 3},
 		{Kind: porcupine.ReturnEvent, Value: CasRegisterResponse{Value: 200}, Id: 4},
 	}
-	res := porcupine.CheckEvents(CasRegisterModel(), events)
+	res := porcupine.CheckEvents(convertModel(CasRegisterModel()), events)
 	if res != true {
 		t.Fatal("expected operations to be linearizable")
 	}
