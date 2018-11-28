@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
+	"github.com/juju/errors"
 	pchecker "github.com/siddontang/chaos/pkg/check/porcupine"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
@@ -167,6 +168,42 @@ func (c *bankClient) NextRequest() interface{} {
 	return r
 }
 
+func (c *bankClient) Summarize(ctx context.Context) (interface{}, error) {
+	txn, err := c.db.Begin()
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer txn.Rollback()
+
+	rows, err := txn.QueryContext(ctx, "select balance from accounts")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer rows.Close()
+
+	balances := make([]int64, 0, c.accountNum)
+	for rows.Next() {
+		var v int64
+		if err = rows.Scan(&v); err != nil {
+			return nil, errors.Trace(err)
+		}
+		balances = append(balances, v)
+	}
+	return balances, nil
+}
+
+// BankClientCreator creates a bank test client for tidb.
+type BankClientCreator struct {
+}
+
+// Create creates a client.
+func (BankClientCreator) Create(node string) core.Client {
+	return &bankClient{
+		accountNum: accountNum,
+	}
+}
+
 type bankRequest struct {
 	// 0: read
 	// 1: transfer
@@ -213,10 +250,21 @@ func balancesEqual(a, b []int64) bool {
 }
 
 type bank struct {
-	accountNum int
+	accountNum    int
+	perparedState *[]int64
 }
 
-func (b bank) Init() interface{} {
+func (b *bank) Prepare(state interface{}) {
+	s := state.([]int64)
+	b.perparedState = &s
+}
+
+func (b *bank) Init() interface{} {
+	if b.perparedState != nil {
+		return *b.perparedState
+	}
+
+	// Or make a brand new state.
 	v := make([]int64, b.accountNum)
 	for i := 0; i < b.accountNum; i++ {
 		v[i] = initBalance
@@ -224,7 +272,7 @@ func (b bank) Init() interface{} {
 	return v
 }
 
-func (bank) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+func (*bank) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
 	st := state.([]int64)
 	inp := input.(bankRequest)
 	out := output.(bankResponse)
@@ -246,19 +294,19 @@ func (bank) Step(state interface{}, input interface{}, output interface{}) (bool
 	return out.Ok || out.Unknown, newSt
 }
 
-func (bank) Equal(state1, state2 interface{}) bool {
+func (*bank) Equal(state1, state2 interface{}) bool {
 	st1 := state1.([]int64)
 	st2 := state2.([]int64)
 	return balancesEqual(st1, st2)
 }
 
-func (bank) Name() string {
+func (*bank) Name() string {
 	return "tidb_bank"
 }
 
 // BankModel is the model of bank in TiDB
 func BankModel() core.Model {
-	return bank{
+	return &bank{
 		accountNum: accountNum,
 	}
 }
@@ -287,20 +335,18 @@ func (p bankParser) OnNoopResponse() interface{} {
 	return bankResponse{Unknown: true}
 }
 
+func (p bankParser) OnSummarize(data json.RawMessage) (interface{}, error) {
+	var state []int64
+	err := json.Unmarshal(data, &state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
+}
+
 // BankParser parses a history of bank operations.
 func BankParser() history.RecordParser {
 	return bankParser{}
-}
-
-// BankClientCreator creates a bank test client for tidb.
-type BankClientCreator struct {
-}
-
-// Create creates a client.
-func (BankClientCreator) Create(node string) core.Client {
-	return &bankClient{
-		accountNum: accountNum,
-	}
 }
 
 type tsoEvent struct {

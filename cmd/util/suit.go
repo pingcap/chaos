@@ -8,20 +8,20 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/siddontang/chaos/cmd/verifier/verify"
 	"github.com/siddontang/chaos/pkg/control"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/nemesis"
+	"github.com/siddontang/chaos/pkg/verify"
 )
 
 // Suit is a basic chaos testing suit with configurations to run chaos.
 type Suit struct {
 	control.Config
 	core.ClientCreator
-	// model names, seperate by comma.
-	ModelNames string
 	// nemesis, seperated by comma.
 	Nemesises string
+
+	VerifySuit verify.Suit
 }
 
 // Run runs the suit.
@@ -46,12 +46,17 @@ func (suit *Suit) Run() {
 		nemesisGens = append(nemesisGens, g)
 	}
 
-	c := control.NewController(&suit.Config, suit.ClientCreator, nemesisGens)
+	ctx, cancel := context.WithCancel(context.Background())
+	c := control.NewController(
+		ctx,
+		&suit.Config,
+		suit.ClientCreator,
+		nemesisGens,
+		suit.VerifySuit,
+	)
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		<-sigs
@@ -60,6 +65,4 @@ func (suit *Suit) Run() {
 	}()
 
 	c.Run()
-
-	verify.Verify(ctx, suit.Config.History, suit.ModelNames)
 }

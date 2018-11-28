@@ -23,6 +23,8 @@ type Client interface {
 	Invoke(ctx context.Context, node string, r interface{}) interface{}
 	// NextRequest generates a request for latter Invoke.
 	NextRequest() interface{}
+	// Summarize the database state(also the model's state)
+	Summarize(ctx context.Context) (interface{}, error)
 }
 
 // ClientCreator creates a client.
@@ -53,10 +55,15 @@ func (noopClient) TearDown(ctx context.Context, nodes []string, node string) err
 
 // Invoke invokes a request to the database.
 func (noopClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
-	return 0
+	return nil
 }
 
 // NextRequest generates a request for latter Invoke.
 func (noopClient) NextRequest() interface{} {
-	return 1
+	return nil
+}
+
+// Summarize the database state(also the model's state)
+func (noopClient) Summarize(ctx context.Context) (interface{}, error) {
+	return nil, nil
 }

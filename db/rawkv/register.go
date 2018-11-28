@@ -88,6 +88,19 @@ func (c *registerClient) NextRequest() interface{} {
 	return r
 }
 
+// Summarize the database state(also the model's state)
+func (c *registerClient) Summarize(ctx context.Context) (interface{}, error) {
+	val, err := c.db.Get(register)
+	if err != nil {
+		return nil, err
+	}
+	v, err := strconv.ParseInt(string(val), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 func newRegisterEvent(v interface{}, id uint) porcupine.Event {
 	if _, ok := v.(model.RegisterRequest); ok {
 		return porcupine.Event{Kind: porcupine.CallEvent, Value: v, Id: id}

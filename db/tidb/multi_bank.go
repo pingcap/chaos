@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/siddontang/chaos/pkg/core"
 )
 
@@ -150,6 +151,27 @@ func (c *multiBankClient) NextRequest() interface{} {
 
 	r.Amount = 5
 	return r
+}
+
+// Summarize the database state(also the model's state)
+func (c *multiBankClient) Summarize(ctx context.Context) (interface{}, error) {
+	txn, err := c.db.Begin()
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer txn.Rollback()
+
+	balances := make([]int64, 0, c.accountNum)
+	for i := 0; i < c.accountNum; i++ {
+		var balance int64
+		sql := fmt.Sprintf("select balance from accounts_%d", i)
+		if err = txn.QueryRowContext(ctx, sql).Scan(&balance); err != nil {
+			return nil, err
+		}
+		balances = append(balances, balance)
+	}
+	return balances, nil
 }
 
 // MultiBankClientCreator creates a bank test client for tidb.

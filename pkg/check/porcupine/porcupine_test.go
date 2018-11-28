@@ -20,6 +20,9 @@ type noopResponse struct {
 
 type noop struct{}
 
+func (noop) Prepare(_ interface{}) {
+}
+
 func (noop) Init() interface{} {
 	return 10
 }
