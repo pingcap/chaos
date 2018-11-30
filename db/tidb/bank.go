@@ -168,7 +168,7 @@ func (c *bankClient) NextRequest() interface{} {
 	return r
 }
 
-func (c *bankClient) Summarize(ctx context.Context) (interface{}, error) {
+func (c *bankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()
 
 	if err != nil {
@@ -335,7 +335,7 @@ func (p bankParser) OnNoopResponse() interface{} {
 	return bankResponse{Unknown: true}
 }
 
-func (p bankParser) OnSummarize(data json.RawMessage) (interface{}, error) {
+func (p bankParser) OnState(data json.RawMessage) (interface{}, error) {
 	var state []int64
 	err := json.Unmarshal(data, &state)
 	if err != nil {

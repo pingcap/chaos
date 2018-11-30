@@ -211,9 +211,9 @@ func (c *Controller) summarizeState(ctx context.Context, recorder *history.Recor
 	for _, client := range c.clients {
 		for _, node := range c.nodes {
 			log.Printf("begin to summarize on node %s", node)
-			sum, err := client.Summarize(ctx)
+			sum, err := client.DumpState(ctx)
 			if err == nil {
-				recorder.SummarizeState(sum)
+				recorder.RecordState(sum)
 				return nil
 			}
 		}

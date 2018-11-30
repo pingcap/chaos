@@ -46,8 +46,8 @@ func (r *Recorder) Close() {
 	r.f.Close()
 }
 
-// SummarizeState records the request.
-func (r *Recorder) SummarizeState(state interface{}) error {
+// RecordState records the request.
+func (r *Recorder) RecordState(state interface{}) error {
 	return r.record(0, summarizeOperation, state)
 }
 
@@ -105,8 +105,8 @@ type RecordParser interface {
 	// If we have some infinite operations, we should return a
 	// noop response to complete the operation.
 	OnNoopResponse() interface{}
-	// OnSummarize parses model state json data to model's state
-	OnSummarize(state json.RawMessage) (interface{}, error)
+	// OnState parses model state json data to model's state
+	OnState(state json.RawMessage) (interface{}, error)
 }
 
 // ReadHistory reads operations and a model state from a history file.
@@ -136,7 +136,7 @@ func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, interfac
 				return nil, nil, err
 			}
 		} else {
-			if state, err = p.OnSummarize(record.Data); err != nil {
+			if state, err = p.OnState(record.Data); err != nil {
 				return nil, nil, err
 			}
 			// A summarized state is not an operation.

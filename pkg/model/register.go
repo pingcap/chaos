@@ -104,7 +104,7 @@ func (p registerParser) OnNoopResponse() interface{} {
 	return RegisterResponse{Unknown: true}
 }
 
-func (p registerParser) OnSummarize(data json.RawMessage) (interface{}, error) {
+func (p registerParser) OnState(data json.RawMessage) (interface{}, error) {
 	var state int
 	err := json.Unmarshal(data, &state)
 	if err != nil {

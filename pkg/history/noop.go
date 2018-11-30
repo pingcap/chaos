@@ -25,7 +25,7 @@ type action struct {
 
 // NoopParser is a noop parser.
 type NoopParser struct {
-	SummarizeState int
+	State int
 }
 
 // OnRequest impls RecordParser.
@@ -50,7 +50,7 @@ func (p NoopParser) OnNoopResponse() interface{} {
 	return NoopResponse{Unknown: true}
 }
 
-// OnSummarize impls RecordParser.
-func (p NoopParser) OnSummarize(state json.RawMessage) (interface{}, error) {
-	return p.SummarizeState, nil
+// OnState impls RecordParser.
+func (p NoopParser) OnState(state json.RawMessage) (interface{}, error) {
+	return p.State, nil
 }

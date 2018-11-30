@@ -88,8 +88,8 @@ func (c *registerClient) NextRequest() interface{} {
 	return r
 }
 
-// Summarize the database state(also the model's state)
-func (c *registerClient) Summarize(ctx context.Context) (interface{}, error) {
+// DumpState the database state(also the model's state)
+func (c *registerClient) DumpState(ctx context.Context) (interface{}, error) {
 	val, err := c.db.Get(register)
 	if err != nil {
 		return nil, err

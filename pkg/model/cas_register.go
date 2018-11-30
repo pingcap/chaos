@@ -114,7 +114,7 @@ func (p casRegisterParser) OnNoopResponse() interface{} {
 	return CasRegisterResponse{Unknown: true}
 }
 
-func (p casRegisterParser) OnSummarize(data json.RawMessage) (interface{}, error) {
+func (p casRegisterParser) OnState(data json.RawMessage) (interface{}, error) {
 	var state int
 	err := json.Unmarshal(data, &state)
 	if err != nil {

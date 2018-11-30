@@ -153,8 +153,8 @@ func (c *multiBankClient) NextRequest() interface{} {
 	return r
 }
 
-// Summarize the database state(also the model's state)
-func (c *multiBankClient) Summarize(ctx context.Context) (interface{}, error) {
+// DumpState the database state(also the model's state)
+func (c *multiBankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()
 
 	if err != nil {

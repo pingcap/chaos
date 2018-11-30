@@ -34,7 +34,7 @@ func TestRecordAndReadHistory(t *testing.T) {
 		{3, NoopRequest{Op: 0}},
 		{3, NoopResponse{Value: 15}},
 	}
-	summarizeState := 7
+	parserState := 7
 
 	for _, action := range actions {
 		switch v := action.op.(type) {
@@ -48,17 +48,17 @@ func TestRecordAndReadHistory(t *testing.T) {
 			}
 		}
 	}
-	if err = r.SummarizeState(summarizeState); err != nil {
+	if err = r.RecordState(parserState); err != nil {
 		t.Fatalf("record summarize failed %v", err)
 	}
 
-	ops, state, err := ReadHistory(name, NoopParser{SummarizeState: summarizeState})
+	ops, state, err := ReadHistory(name, NoopParser{State: parserState})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if state.(int) != summarizeState {
-		t.Fatalf("expect state to be %v, got %v", summarizeState, state)
+	if state.(int) != parserState {
+		t.Fatalf("expect state to be %v, got %v", parserState, state)
 	}
 
 	if len(ops) != len(actions) {
