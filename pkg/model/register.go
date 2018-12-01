@@ -36,14 +36,23 @@ func (r RegisterResponse) IsUnknown() bool {
 	return r.Unknown
 }
 
-type register struct{}
-
-func (register) Init() interface{} {
-	state := 0
-	return state
+type register struct {
+	perparedState *int
 }
 
-func (register) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+func (r *register) Prepare(state interface{}) {
+	s := state.(int)
+	r.perparedState = &s
+}
+
+func (r *register) Init() interface{} {
+	if r.perparedState != nil {
+		return *r.perparedState
+	}
+	return 0
+}
+
+func (*register) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
 	st := state.(int)
 	inp := input.(RegisterRequest)
 	out := output.(RegisterResponse)
@@ -58,19 +67,19 @@ func (register) Step(state interface{}, input interface{}, output interface{}) (
 	return true, inp.Value
 }
 
-func (register) Equal(state1, state2 interface{}) bool {
+func (*register) Equal(state1, state2 interface{}) bool {
 	st1 := state1.(int)
 	st2 := state2.(int)
 	return st1 == st2
 }
 
-func (register) Name() string {
+func (*register) Name() string {
 	return "register"
 }
 
 // RegisterModel returns a read/write register model
 func RegisterModel() core.Model {
-	return register{}
+	return &register{}
 }
 
 type registerParser struct {
@@ -93,6 +102,15 @@ func (p registerParser) OnResponse(data json.RawMessage) (interface{}, error) {
 
 func (p registerParser) OnNoopResponse() interface{} {
 	return RegisterResponse{Unknown: true}
+}
+
+func (p registerParser) OnState(data json.RawMessage) (interface{}, error) {
+	var state int
+	err := json.Unmarshal(data, &state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // RegisterParser parses Register history.

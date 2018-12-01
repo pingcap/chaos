@@ -39,13 +39,23 @@ func (r CasRegisterResponse) IsUnknown() bool {
 	return r.Unknown
 }
 
-type casRegister struct{}
+type casRegister struct {
+	perparedState *int
+}
 
-func (casRegister) Init() interface{} {
+func (c *casRegister) Prepare(state interface{}) {
+	s := state.(int)
+	c.perparedState = &s
+}
+
+func (c *casRegister) Init() interface{} {
+	if c.perparedState != nil {
+		return *c.perparedState
+	}
 	return -1
 }
 
-func (casRegister) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
+func (*casRegister) Step(state interface{}, input interface{}, output interface{}) (bool, interface{}) {
 	st := state.(int)
 	inp := input.(CasRegisterRequest)
 	out := output.(CasRegisterResponse)
@@ -67,19 +77,19 @@ func (casRegister) Step(state interface{}, input interface{}, output interface{}
 	return ok, result
 }
 
-func (casRegister) Equal(state1, state2 interface{}) bool {
+func (*casRegister) Equal(state1, state2 interface{}) bool {
 	st1 := state1.(int)
 	st2 := state2.(int)
 	return st1 == st2
 }
 
-func (casRegister) Name() string {
+func (*casRegister) Name() string {
 	return "cas_register"
 }
 
 // CasRegisterModel returns a cas register model
 func CasRegisterModel() core.Model {
-	return casRegister{}
+	return &casRegister{}
 }
 
 type casRegisterParser struct {
@@ -102,6 +112,15 @@ func (p casRegisterParser) OnResponse(data json.RawMessage) (interface{}, error)
 
 func (p casRegisterParser) OnNoopResponse() interface{} {
 	return CasRegisterResponse{Unknown: true}
+}
+
+func (p casRegisterParser) OnState(data json.RawMessage) (interface{}, error) {
+	var state int
+	err := json.Unmarshal(data, &state)
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // CasRegisterParser parses CasRegister history.

@@ -9,3 +9,16 @@ type Checker interface {
 	// Name returns the unique name for the checker.
 	Name() string
 }
+
+// NoopChecker is a noop checker.
+type NoopChecker struct{}
+
+// Check impls Checker.
+func (NoopChecker) Check(m Model, ops []Operation) (bool, error) {
+	return true, nil
+}
+
+// Name impls Checker.
+func (NoopChecker) Name() string {
+	return "NoopChecker"
+}

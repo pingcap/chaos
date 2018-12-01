@@ -33,3 +33,12 @@ func TestCasRegisterModel(t *testing.T) {
 		t.Fatal("expected operations to be linearizable")
 	}
 }
+
+func TestCasRegisterModelPrepare(t *testing.T) {
+	model := RegisterModel()
+	model.Prepare(888)
+	state := model.Init()
+	if state.(int) != 888 {
+		t.Fatalf("expected to be 888, got %v", state)
+	}
+}

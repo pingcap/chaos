@@ -8,10 +8,12 @@ import (
 type Config struct {
 	// DB is the name which we want to run.
 	DB string
+	// RunRound controls how many round the controller runs tests.
+	RunRound int
+	// RunTime controls how long a round takes.
+	RunTime time.Duration
 	// RequestCount controls how many requests a client sends to the db
 	RequestCount int
-	// RunTime controls how long the controller takes.
-	RunTime time.Duration
 
 	// History file
 	History string

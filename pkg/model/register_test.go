@@ -61,6 +61,15 @@ func TestRegisterModel(t *testing.T) {
 	}
 }
 
+func TestRegisterModelPrepare(t *testing.T) {
+	model := RegisterModel()
+	model.Prepare(777)
+	state := model.Init()
+	if state.(int) != 777 {
+		t.Fatalf("expected to be 777, got %v", state)
+	}
+}
+
 func TestRegisterParser(t *testing.T) {
 	parser := registerParser{}
 

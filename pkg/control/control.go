@@ -10,6 +10,7 @@ import (
 
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
+	"github.com/siddontang/chaos/pkg/verify"
 
 	// register nemesis
 	_ "github.com/siddontang/chaos/pkg/nemesis"
@@ -36,11 +37,17 @@ type Controller struct {
 	proc         int64
 	requestCount int64
 
-	recorder *history.Recorder
+	suit verify.Suit
 }
 
 // NewController creates a controller.
-func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerators []core.NemesisGenerator) *Controller {
+func NewController(
+	ctx context.Context,
+	cfg *Config,
+	clientCreator core.ClientCreator,
+	nemesisGenerators []core.NemesisGenerator,
+	verifySuit verify.Suit,
+) *Controller {
 	cfg.adjust()
 
 	if len(cfg.DB) == 0 {
@@ -51,16 +58,11 @@ func NewController(cfg *Config, clientCreator core.ClientCreator, nemesisGenerat
 		log.Fatalf("database %s is not registered", cfg.DB)
 	}
 
-	r, err := history.NewRecorder(cfg.History)
-	if err != nil {
-		log.Fatalf("prepare history failed %v", err)
-	}
-
 	c := new(Controller)
 	c.cfg = cfg
-	c.ctx, c.cancel = context.WithCancel(context.Background())
-	c.recorder = r
+	c.ctx, c.cancel = context.WithCancel(ctx)
 	c.nemesisGenerators = nemesisGenerators
+	c.suit = verifySuit
 
 	for i := 1; i <= 5; i++ {
 		name := fmt.Sprintf("n%d", i)
@@ -81,35 +83,65 @@ func (c *Controller) Run() {
 	c.setUpDB()
 	c.setUpClient()
 
-	n := len(c.nodes)
-	var clientWg sync.WaitGroup
-	clientWg.Add(n)
-	for i := 0; i < n; i++ {
-		go func(i int) {
-			defer clientWg.Done()
-			c.onClientLoop(i)
-		}(i)
-	}
-
-	ctx, cancel := context.WithCancel(c.ctx)
+	nctx, ncancel := context.WithTimeout(c.ctx, c.cfg.RunTime*time.Duration(int64(c.cfg.RunRound)))
 	var nemesisWg sync.WaitGroup
 	nemesisWg.Add(1)
 	go func() {
 		defer nemesisWg.Done()
-		c.dispatchNemesis(ctx)
+		c.dispatchNemesis(nctx)
 	}()
 
-	clientWg.Wait()
+ROUND:
+	for round := 1; round <= c.cfg.RunRound; round++ {
+		log.Printf("round %d start ...", round)
 
-	cancel()
+		ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
+
+		historyFile := fmt.Sprintf("%s.%d", c.cfg.History, round)
+		recorder, err := history.NewRecorder(historyFile)
+		if err != nil {
+			log.Fatalf("prepare history failed %v", err)
+		}
+
+		if err := c.summarizeState(ctx, recorder); err != nil {
+			log.Fatalf("summarize state failed %v", err)
+		}
+
+		// requestCount for the round, shared by all clients.
+		requestCount := int64(c.cfg.RequestCount)
+		log.Printf("total request count %d", requestCount)
+
+		n := len(c.nodes)
+		var clientWg sync.WaitGroup
+		clientWg.Add(n)
+		for i := 0; i < n; i++ {
+			go func(i int) {
+				defer clientWg.Done()
+				c.onClientLoop(ctx, i, &requestCount, recorder)
+			}(i)
+		}
+
+		clientWg.Wait()
+		cancel()
+
+		recorder.Close()
+		c.suit.Verify(historyFile)
+
+		select {
+		case <-c.ctx.Done():
+			log.Printf("finish test")
+			break ROUND
+		default:
+		}
+
+		log.Printf("round %d finish", round)
+	}
+
+	ncancel()
 	nemesisWg.Wait()
 
 	c.tearDownClient()
 	c.tearDownDB()
-
-	c.recorder.Close()
-
-	log.Printf("finish test")
 }
 
 func (c *Controller) syncExec(f func(i int)) {
@@ -172,20 +204,42 @@ func (c *Controller) tearDownClient() {
 	})
 }
 
-func (c *Controller) onClientLoop(i int) {
+func (c *Controller) summarizeState(ctx context.Context, recorder *history.Recorder) error {
+	ctx, cancel := context.WithCancel(c.ctx)
+	defer cancel()
+
+	for _, client := range c.clients {
+		for _, node := range c.nodes {
+			log.Printf("begin to summarize on node %s", node)
+			sum, err := client.DumpState(ctx)
+			if err == nil {
+				recorder.RecordState(sum)
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("fail to summarize")
+}
+
+func (c *Controller) onClientLoop(
+	ctx context.Context,
+	i int,
+	requestCount *int64,
+	recorder *history.Recorder,
+) {
 	client := c.clients[i]
 	node := c.nodes[i]
 
 	log.Printf("begin to run command on node %s", node)
 
-	ctx, cancel := context.WithTimeout(c.ctx, c.cfg.RunTime)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	procID := atomic.AddInt64(&c.proc, 1)
-	for atomic.AddInt64(&c.requestCount, 1) <= int64(c.cfg.RequestCount) {
+	for atomic.AddInt64(requestCount, -1) >= 0 {
 		request := client.NextRequest()
 
-		if err := c.recorder.RecordRequest(procID, request); err != nil {
+		if err := recorder.RecordRequest(procID, request); err != nil {
 			log.Fatalf("record request %v failed %v", request, err)
 		}
 
@@ -195,7 +249,7 @@ func (c *Controller) onClientLoop(i int) {
 			isUnknown = v.IsUnknown()
 		}
 
-		if err := c.recorder.RecordResponse(procID, response); err != nil {
+		if err := recorder.RecordResponse(procID, response); err != nil {
 			log.Fatalf("record response %v failed %v", response, err)
 		}
 

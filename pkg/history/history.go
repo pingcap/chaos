@@ -20,11 +20,13 @@ type opRecord struct {
 	Data   json.RawMessage `json:"data"`
 }
 
+// TODO: different operation for initial state and final state.
+const summarizeOperation = "summarize"
+
 // Recorder records operation history.
 type Recorder struct {
 	sync.Mutex
-	f   *os.File
-	ops []core.Operation
+	f *os.File
 }
 
 // NewRecorder creates a recorder to log the history to the file.
@@ -42,6 +44,11 @@ func NewRecorder(name string) (*Recorder, error) {
 // Close closes the recorder.
 func (r *Recorder) Close() {
 	r.f.Close()
+}
+
+// RecordState records the request.
+func (r *Recorder) RecordState(state interface{}) error {
+	return r.record(0, summarizeOperation, state)
 }
 
 // RecordRequest records the request.
@@ -83,22 +90,11 @@ func (r *Recorder) record(proc int64, action string, op interface{}) error {
 		return err
 	}
 
-	// Store the op in core.Operation directly.
-	coreOp := core.Operation{
-		Action: action,
-		Proc:   proc,
-		Data:   op,
-	}
-	r.ops = append(r.ops, coreOp)
 	return nil
 }
 
-// Operations returns operations that it records
-func (r *Recorder) Operations() []core.Operation {
-	return r.ops
-}
-
 // RecordParser is to parses the operation data.
+// It must be thread-safe.
 type RecordParser interface {
 	// OnRequest parses an operation data to model's input.
 	OnRequest(data json.RawMessage) (interface{}, error)
@@ -109,33 +105,42 @@ type RecordParser interface {
 	// If we have some infinite operations, we should return a
 	// noop response to complete the operation.
 	OnNoopResponse() interface{}
+	// OnState parses model state json data to model's state
+	OnState(state json.RawMessage) (interface{}, error)
 }
 
-// ReadHistory reads operations from a history file.
-func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, error) {
+// ReadHistory reads operations and a model state from a history file.
+func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, interface{}, error) {
 	f, err := os.Open(historyFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer f.Close()
 
+	var state interface{}
 	ops := make([]core.Operation, 0, 1024)
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		var record opRecord
 		if err = json.Unmarshal(scanner.Bytes(), &record); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		var data interface{}
 		if record.Action == core.InvokeOperation {
 			if data, err = p.OnRequest(record.Data); err != nil {
-				return nil, err
+				return nil, nil, err
+			}
+		} else if record.Action == core.ReturnOperation {
+			if data, err = p.OnResponse(record.Data); err != nil {
+				return nil, nil, err
 			}
 		} else {
-			if data, err = p.OnResponse(record.Data); err != nil {
-				return nil, err
+			if state, err = p.OnState(record.Data); err != nil {
+				return nil, nil, err
 			}
+			// A summarized state is not an operation.
+			continue
 		}
 
 		op := core.Operation{
@@ -147,10 +152,10 @@ func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, error) {
 	}
 
 	if err = scanner.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ops, nil
+	return ops, state, nil
 }
 
 // int64Slice attaches the methods of Interface to []int, sorting in increasing order.
