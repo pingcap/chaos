@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
-	"github.com/juju/errors"
 	pchecker "github.com/siddontang/chaos/pkg/check/porcupine"
 	"github.com/siddontang/chaos/pkg/core"
 	"github.com/siddontang/chaos/pkg/history"
@@ -172,13 +171,13 @@ func (c *bankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	defer txn.Rollback()
 
 	rows, err := txn.QueryContext(ctx, "select balance from accounts")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -186,7 +185,7 @@ func (c *bankClient) DumpState(ctx context.Context) (interface{}, error) {
 	for rows.Next() {
 		var v int64
 		if err = rows.Scan(&v); err != nil {
-			return nil, errors.Trace(err)
+			return nil, err
 		}
 		balances = append(balances, v)
 	}
