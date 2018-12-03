@@ -21,7 +21,7 @@ type opRecord struct {
 }
 
 // TODO: different operation for initial state and final state.
-const summarizeOperation = "summarize"
+const dumpOperation = "dump"
 
 // Recorder records operation history.
 type Recorder struct {
@@ -48,7 +48,7 @@ func (r *Recorder) Close() {
 
 // RecordState records the request.
 func (r *Recorder) RecordState(state interface{}) error {
-	return r.record(0, summarizeOperation, state)
+	return r.record(0, dumpOperation, state)
 }
 
 // RecordRequest records the request.
@@ -139,7 +139,7 @@ func ReadHistory(historyFile string, p RecordParser) ([]core.Operation, interfac
 			if state, err = p.OnState(record.Data); err != nil {
 				return nil, nil, err
 			}
-			// A summarized state is not an operation.
+			// A dumped state is not an operation.
 			continue
 		}
 

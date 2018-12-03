@@ -60,10 +60,10 @@ func main() {
 		Parser:  tidb.BankParser(),
 	}
 	suit := util.Suit{
-		Config:        cfg,
+		Config:        &cfg,
 		ClientCreator: creator,
 		Nemesises:     *nemesises,
 		VerifySuit:    verifySuit,
 	}
-	suit.Run()
+	suit.Run([]string{})
 }
