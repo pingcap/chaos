@@ -1,9 +1,8 @@
 package porcupine
 
 import (
+	"fmt"
 	"log"
-
-	"github.com/pkg/errors"
 
 	"github.com/anishathalye/porcupine"
 	"github.com/siddontang/chaos/pkg/core"
@@ -36,7 +35,7 @@ func (Checker) Name() string {
 // ConvertOperationsToEvents converts core.Operations to porcupine.Event.
 func ConvertOperationsToEvents(ops []core.Operation) ([]porcupine.Event, error) {
 	if len(ops)%2 != 0 {
-		return nil, errors.New("history is not complete")
+		return nil, fmt.Errorf("history is not complete")
 	}
 
 	procID := map[int64]uint{}
@@ -69,7 +68,7 @@ func ConvertOperationsToEvents(ops []core.Operation) ([]porcupine.Event, error) 
 	}
 
 	if len(procID) != 0 {
-		return nil, errors.New("history is not complete")
+		return nil, fmt.Errorf("history is not complete")
 	}
 
 	return events, nil

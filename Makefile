@@ -7,13 +7,13 @@ build: chaos verifier
 chaos: rawkv tidb txnkv
 
 tidb:
-	go build -o bin/chaos-tidb cmd/tidb/main.go
+	GO111MODULE=on go build -o bin/chaos-tidb cmd/tidb/main.go
 
 rawkv:
-	go build -o bin/chaos-rawkv cmd/rawkv/main.go
+	GO111MODULE=on go build -o bin/chaos-rawkv cmd/rawkv/main.go
 
 txnkv:
-	go build -o bin/chaos-txnkv cmd/txnkv/main.go
+	GO111MODULE=on go build -o bin/chaos-txnkv cmd/txnkv/main.go
 
 verifier:
-	go build -o bin/chaos-verifier cmd/verifier/main.go
+	GO111MODULE=on go build -o bin/chaos-verifier cmd/verifier/main.go

@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/siddontang/chaos/pkg/core"
 )
 
@@ -158,7 +157,7 @@ func (c *multiBankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()
 
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 	defer txn.Rollback()
 
