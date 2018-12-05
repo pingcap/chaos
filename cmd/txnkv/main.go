@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"time"
@@ -53,5 +54,5 @@ func main() {
 		Nemesises:     *nemesises,
 		VerifySuit:    verifySuit,
 	}
-	suit.Run([]string{})
+	suit.Run(context.Background(), []string{})
 }

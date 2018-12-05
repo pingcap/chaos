@@ -26,7 +26,7 @@ type Suit struct {
 }
 
 // Run runs the suit.
-func (suit *Suit) Run(nodes []string) {
+func (suit *Suit) Run(ctx context.Context, nodes []string) {
 	var nemesisGens []core.NemesisGenerator
 	for _, name := range strings.Split(suit.Nemesises, ",") {
 		var g core.NemesisGenerator
@@ -47,7 +47,7 @@ func (suit *Suit) Run(nodes []string) {
 		nemesisGens = append(nemesisGens, g)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	sctx, cancel := context.WithCancel(ctx)
 
 	if len(nodes) != 0 {
 		suit.Config.Nodes = nodes
@@ -60,7 +60,7 @@ func (suit *Suit) Run(nodes []string) {
 	}
 
 	c := control.NewController(
-		ctx,
+		sctx,
 		suit.Config,
 		suit.ClientCreator,
 		nemesisGens,
