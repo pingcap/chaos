@@ -8,11 +8,14 @@ import (
 type Config struct {
 	// DB is the name which we want to run.
 	DB string
+	// Nodes are address of nodes.
+	Nodes []string
+
 	// RunRound controls how many round the controller runs tests.
 	RunRound int
 	// RunTime controls how long a round takes.
 	RunTime time.Duration
-	// RequestCount controls how many requests a client sends to the db
+	// RequestCount controls how many requests a client sends to the db.
 	RequestCount int
 
 	// History file
@@ -26,5 +29,9 @@ func (c *Config) adjust() {
 
 	if c.RunTime == 0 {
 		c.RunTime = 10 * time.Minute
+	}
+
+	if c.RunRound == 0 {
+		c.RunRound = 20
 	}
 }

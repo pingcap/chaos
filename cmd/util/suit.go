@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,7 +17,7 @@ import (
 
 // Suit is a basic chaos testing suit with configurations to run chaos.
 type Suit struct {
-	control.Config
+	*control.Config
 	core.ClientCreator
 	// nemesis, seperated by comma.
 	Nemesises string
@@ -25,7 +26,7 @@ type Suit struct {
 }
 
 // Run runs the suit.
-func (suit *Suit) Run() {
+func (suit *Suit) Run(nodes []string) {
 	var nemesisGens []core.NemesisGenerator
 	for _, name := range strings.Split(suit.Nemesises, ",") {
 		var g core.NemesisGenerator
@@ -47,9 +48,20 @@ func (suit *Suit) Run() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	if len(nodes) != 0 {
+		suit.Config.Nodes = nodes
+	} else {
+		// By default, we run TiKV/TiDB cluster on 5 nodes.
+		for i := 1; i <= 5; i++ {
+			name := fmt.Sprintf("n%d", i)
+			suit.Config.Nodes = append(suit.Config.Nodes, name)
+		}
+	}
+
 	c := control.NewController(
 		ctx,
-		&suit.Config,
+		suit.Config,
 		suit.ClientCreator,
 		nemesisGens,
 		suit.VerifySuit,

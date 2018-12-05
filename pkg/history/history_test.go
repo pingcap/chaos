@@ -49,7 +49,7 @@ func TestRecordAndReadHistory(t *testing.T) {
 		}
 	}
 	if err = r.RecordState(parserState); err != nil {
-		t.Fatalf("record summarize failed %v", err)
+		t.Fatalf("record dump failed %v", err)
 	}
 
 	ops, state, err := ReadHistory(name, NoopParser{State: parserState})

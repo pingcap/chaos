@@ -25,8 +25,6 @@ import (
 type Controller struct {
 	cfg *Config
 
-	nodes []string
-
 	clients []core.Client
 
 	nemesisGenerators []core.NemesisGenerator
@@ -64,11 +62,11 @@ func NewController(
 	c.nemesisGenerators = nemesisGenerators
 	c.suit = verifySuit
 
-	for i := 1; i <= 5; i++ {
-		name := fmt.Sprintf("n%d", i)
-		c.nodes = append(c.nodes, name)
-		c.clients = append(c.clients, clientCreator.Create(name))
+	for _, node := range c.cfg.Nodes {
+		c.clients = append(c.clients, clientCreator.Create(node))
 	}
+
+	log.Printf("start controller with %+v", cfg)
 
 	return c
 }
@@ -103,15 +101,15 @@ ROUND:
 			log.Fatalf("prepare history failed %v", err)
 		}
 
-		if err := c.summarizeState(ctx, recorder); err != nil {
-			log.Fatalf("summarize state failed %v", err)
+		if err := c.dumpState(ctx, recorder); err != nil {
+			log.Fatalf("dump state failed %v", err)
 		}
 
 		// requestCount for the round, shared by all clients.
 		requestCount := int64(c.cfg.RequestCount)
 		log.Printf("total request count %d", requestCount)
 
-		n := len(c.nodes)
+		n := len(c.cfg.Nodes)
 		var clientWg sync.WaitGroup
 		clientWg.Add(n)
 		for i := 0; i < n; i++ {
@@ -146,7 +144,7 @@ ROUND:
 
 func (c *Controller) syncExec(f func(i int)) {
 	var wg sync.WaitGroup
-	n := len(c.nodes)
+	n := len(c.cfg.Nodes)
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func(i int) {
@@ -160,11 +158,11 @@ func (c *Controller) syncExec(f func(i int)) {
 func (c *Controller) setUpDB() {
 	log.Printf("begin to set up database")
 	c.syncExec(func(i int) {
-		log.Printf("begin to set up database on %s", c.nodes[i])
+		log.Printf("begin to set up database on %s", c.cfg.Nodes[i])
 		db := core.GetDB(c.cfg.DB)
-		err := db.SetUp(c.ctx, c.nodes, c.nodes[i])
+		err := db.SetUp(c.ctx, c.cfg.Nodes, c.cfg.Nodes[i])
 		if err != nil {
-			log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
+			log.Fatalf("setup db %s at node %s failed %v", c.cfg.DB, c.cfg.Nodes[i], err)
 		}
 	})
 }
@@ -172,10 +170,10 @@ func (c *Controller) setUpDB() {
 func (c *Controller) tearDownDB() {
 	log.Printf("begin to tear down database")
 	c.syncExec(func(i int) {
-		log.Printf("being to tear down database on %s", c.nodes[i])
+		log.Printf("being to tear down database on %s", c.cfg.Nodes[i])
 		db := core.GetDB(c.cfg.DB)
-		if err := db.TearDown(c.ctx, c.nodes, c.nodes[i]); err != nil {
-			log.Printf("tear down db %s at node %s failed %v", c.cfg.DB, c.nodes[i], err)
+		if err := db.TearDown(c.ctx, c.cfg.Nodes, c.cfg.Nodes[i]); err != nil {
+			log.Printf("tear down db %s at node %s failed %v", c.cfg.DB, c.cfg.Nodes[i], err)
 		}
 	})
 }
@@ -184,9 +182,9 @@ func (c *Controller) setUpClient() {
 	log.Printf("begin to set up client")
 	c.syncExec(func(i int) {
 		client := c.clients[i]
-		node := c.nodes[i]
+		node := c.cfg.Nodes[i]
 		log.Printf("begin to set up db client for node %s", node)
-		if err := client.SetUp(c.ctx, c.nodes, node); err != nil {
+		if err := client.SetUp(c.ctx, c.cfg.Nodes, node); err != nil {
 			log.Fatalf("set up db client for node %s failed %v", node, err)
 		}
 	})
@@ -196,21 +194,21 @@ func (c *Controller) tearDownClient() {
 	log.Printf("begin to tear down client")
 	c.syncExec(func(i int) {
 		client := c.clients[i]
-		node := c.nodes[i]
+		node := c.cfg.Nodes[i]
 		log.Printf("begin to tear down db client for node %s", node)
-		if err := client.TearDown(c.ctx, c.nodes, node); err != nil {
+		if err := client.TearDown(c.ctx, c.cfg.Nodes, node); err != nil {
 			log.Printf("tear down db client for node %s failed %v", node, err)
 		}
 	})
 }
 
-func (c *Controller) summarizeState(ctx context.Context, recorder *history.Recorder) error {
+func (c *Controller) dumpState(ctx context.Context, recorder *history.Recorder) error {
 	ctx, cancel := context.WithCancel(c.ctx)
 	defer cancel()
 
 	for _, client := range c.clients {
-		for _, node := range c.nodes {
-			log.Printf("begin to summarize on node %s", node)
+		for _, node := range c.cfg.Nodes {
+			log.Printf("begin to dump on node %s", node)
 			sum, err := client.DumpState(ctx)
 			if err == nil {
 				recorder.RecordState(sum)
@@ -218,7 +216,7 @@ func (c *Controller) summarizeState(ctx context.Context, recorder *history.Recor
 			}
 		}
 	}
-	return fmt.Errorf("fail to summarize")
+	return fmt.Errorf("fail to dump")
 }
 
 func (c *Controller) onClientLoop(
@@ -228,7 +226,7 @@ func (c *Controller) onClientLoop(
 	recorder *history.Recorder,
 ) {
 	client := c.clients[i]
-	node := c.nodes[i]
+	node := c.cfg.Nodes[i]
 
 	log.Printf("begin to run command on node %s", node)
 
@@ -273,7 +271,7 @@ func (c *Controller) dispatchNemesis(ctx context.Context) {
 
 	log.Printf("begin to run nemesis")
 	var wg sync.WaitGroup
-	n := len(c.nodes)
+	n := len(c.cfg.Nodes)
 LOOP:
 	for {
 		for _, g := range c.nemesisGenerators {
@@ -284,7 +282,7 @@ LOOP:
 			}
 
 			log.Printf("begin to run %s nemesis generator", g.Name())
-			ops := g.Generate(c.nodes)
+			ops := g.Generate(c.cfg.Nodes)
 
 			wg.Add(n)
 			for i := 0; i < n; i++ {
@@ -309,7 +307,7 @@ func (c *Controller) onNemesisLoop(ctx context.Context, index int, op *core.Neme
 		return
 	}
 
-	node := c.nodes[index]
+	node := c.cfg.Nodes[index]
 
 	log.Printf("run nemesis %s on %s", op.Name, node)
 	if err := nemesis.Invoke(ctx, node, op.InvokeArgs...); err != nil {

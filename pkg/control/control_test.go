@@ -20,6 +20,7 @@ func TestControl(t *testing.T) {
 		RunRound:     3,
 		DB:           "noop",
 		History:      "/tmp/chaos/a.log",
+		Nodes:        []string{"n1", "n2"},
 	}
 
 	defer os.Remove("/tmp/chaos/a.log")
