@@ -3,8 +3,8 @@ package model
 import (
 	"encoding/json"
 
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/history"
 )
 
 // CasOp is an operation.

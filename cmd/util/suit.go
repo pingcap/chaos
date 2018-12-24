@@ -9,10 +9,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/siddontang/chaos/pkg/control"
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/nemesis"
-	"github.com/siddontang/chaos/pkg/verify"
+	"github.com/pingcap/chaos/pkg/control"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/nemesis"
+	"github.com/pingcap/chaos/pkg/verify"
 )
 
 // Suit is a basic chaos testing suit with configurations to run chaos.

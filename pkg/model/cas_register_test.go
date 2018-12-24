@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/anishathalye/porcupine"
-	"github.com/siddontang/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/core"
 )
 
 func convertModel(m core.Model) porcupine.Model {

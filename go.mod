@@ -1,4 +1,4 @@
-module github.com/siddontang/chaos
+module github.com/pingcap/chaos
 
 require (
 	github.com/anishathalye/porcupine v0.0.0-20180912012540-c95d370e6abb

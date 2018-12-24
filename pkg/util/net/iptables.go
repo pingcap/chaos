@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/util/ssh"
+	"github.com/pingcap/chaos/pkg/util/ssh"
 )
 
 // IPTables implements Net interface to simulate the network.

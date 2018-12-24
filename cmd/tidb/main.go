@@ -6,12 +6,12 @@ import (
 	"log"
 	"time"
 
-	"github.com/siddontang/chaos/cmd/util"
-	"github.com/siddontang/chaos/db/tidb"
-	"github.com/siddontang/chaos/pkg/check/porcupine"
-	"github.com/siddontang/chaos/pkg/control"
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/verify"
+	"github.com/pingcap/chaos/cmd/util"
+	"github.com/pingcap/chaos/db/tidb"
+	"github.com/pingcap/chaos/pkg/check/porcupine"
+	"github.com/pingcap/chaos/pkg/control"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/verify"
 )
 
 var (

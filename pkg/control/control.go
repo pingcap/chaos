@@ -8,15 +8,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
-	"github.com/siddontang/chaos/pkg/verify"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/history"
+	"github.com/pingcap/chaos/pkg/verify"
 
 	// register nemesis
-	_ "github.com/siddontang/chaos/pkg/nemesis"
+	_ "github.com/pingcap/chaos/pkg/nemesis"
 
 	// register tidb
-	_ "github.com/siddontang/chaos/db/tidb"
+	_ "github.com/pingcap/chaos/db/tidb"
 )
 
 // Controller controls the whole cluster. It sends request to the database,

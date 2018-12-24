@@ -3,8 +3,8 @@ package nemesis
 import (
 	"context"
 
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/util/net"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/util/net"
 )
 
 type kill struct{}

@@ -6,7 +6,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/siddontang/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/core"
 )
 
 func TestRecordAndReadHistory(t *testing.T) {
