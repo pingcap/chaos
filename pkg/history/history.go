@@ -9,7 +9,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/siddontang/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/core"
 )
 
 // opRecord is similar to core.Operation, but it stores data in json.RawMessage

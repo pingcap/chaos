@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/util/ssh"
+	"github.com/pingcap/chaos/pkg/util/ssh"
 )
 
 func TestWget(t *testing.T) {
@@ -38,12 +38,12 @@ func TestInstallArchive(t *testing.T) {
 	Mkdir(context.Background(), "n1", tmpDir)
 	defer RemoveDir(context.Background(), "n1", tmpDir)
 
-	err := InstallArchive(context.Background(), "n1", "https://github.com/siddontang/chaos/archive/master.zip", path.Join(tmpDir, "1"))
+	err := InstallArchive(context.Background(), "n1", "https://github.com/pingcap/chaos/archive/master.zip", path.Join(tmpDir, "1"))
 	if err != nil {
 		t.Fatalf("install archive failed %v", err)
 	}
 
-	err = InstallArchive(context.Background(), "n1", "https://github.com/siddontang/chaos/archive/master.tar.gz", path.Join(tmpDir, "2"))
+	err = InstallArchive(context.Background(), "n1", "https://github.com/pingcap/chaos/archive/master.tar.gz", path.Join(tmpDir, "2"))
 	if err != nil {
 		t.Fatalf("install archive failed %v", err)
 	}

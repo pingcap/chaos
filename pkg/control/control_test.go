@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
-	"github.com/siddontang/chaos/pkg/verify"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/history"
+	"github.com/pingcap/chaos/pkg/verify"
 )
 
 func TestControl(t *testing.T) {

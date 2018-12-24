@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/core"
 )
 
 type killGenerator struct {

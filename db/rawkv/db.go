@@ -1,8 +1,8 @@
 package rawkv
 
 import (
-	"github.com/siddontang/chaos/db/cluster"
-	"github.com/siddontang/chaos/pkg/core"
+	"github.com/pingcap/chaos/db/cluster"
+	"github.com/pingcap/chaos/pkg/core"
 )
 
 // db is the TiDB database.

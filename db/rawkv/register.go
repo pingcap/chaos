@@ -11,8 +11,8 @@ import (
 	"github.com/anishathalye/porcupine"
 	"github.com/pingcap/tidb/config"
 	"github.com/pingcap/tidb/store/tikv"
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/model"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/model"
 )
 
 var (

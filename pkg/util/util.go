@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/siddontang/chaos/pkg/util/ssh"
+	"github.com/pingcap/chaos/pkg/util/ssh"
 )
 
 // IsFileExist runs on node and returns true if the file exists.

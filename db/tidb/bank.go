@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
-	pchecker "github.com/siddontang/chaos/pkg/check/porcupine"
-	"github.com/siddontang/chaos/pkg/core"
-	"github.com/siddontang/chaos/pkg/history"
+	pchecker "github.com/pingcap/chaos/pkg/check/porcupine"
+	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/history"
 
 	// use mysql
 	_ "github.com/go-sql-driver/mysql"
