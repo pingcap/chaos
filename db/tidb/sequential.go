@@ -23,12 +23,12 @@ const (
 	tpWrite     = "write"
 )
 
-type request struct {
+type seqRequest struct {
 	Tp string
 	K  int
 }
 
-type response struct {
+type seqResponse struct {
 	Ok      bool
 	K       int
 	V       []string
@@ -36,7 +36,7 @@ type response struct {
 }
 
 var (
-	_ core.UnknownResponse = (*response)(nil)
+	_ core.UnknownResponse = (*seqResponse)(nil)
 
 	queue = struct {
 		mu    sync.Mutex
@@ -51,7 +51,7 @@ var (
 )
 
 // IsUnknown implements UnknownResponse interface
-func (r response) IsUnknown() bool {
+func (r seqResponse) IsUnknown() bool {
 	return r.Unknown
 }
 
@@ -91,13 +91,13 @@ READ:
 	// Read
 	// Pop the front
 	k, queue.q = queue.q[0], append([]int{}, queue.q[1:]...)
-	return request{Tp: tpRead, K: k}
+	return seqRequest{Tp: tpRead, K: k}
 WRITE:
 	// Write
 	// Push the end
 	queue.count++
 	queue.q = append(queue.q, k)
-	return request{Tp: tpWrite, K: k}
+	return seqRequest{Tp: tpWrite, K: k}
 }
 
 // Create creates a new SequentialClient.
@@ -176,7 +176,7 @@ func (c *sequentialClient) TearDown(ctx context.Context, nodes []string, node st
 // Invoke invokes a request to the database.
 // Mostly, the return Response should implement UnknownResponse interface
 func (c *sequentialClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
-	req := r.(request)
+	req := r.(seqRequest)
 	ks := subkeys(c.keyCount, req.K)
 	if req.Tp == tpWrite {
 		for _, k := range ks {
@@ -185,10 +185,10 @@ func (c *sequentialClient) Invoke(ctx context.Context, node string, r interface{
 			if err != nil {
 				// TODO: retry on conflict
 				log.Println(err)
-				return response{Ok: false}
+				return seqResponse{Ok: false}
 			}
 		}
-		return response{Ok: true}
+		return seqResponse{Ok: true}
 	} else if req.Tp == tpRead {
 		vs := make([]string, 0, len(ks))
 		for i := len(ks) - 1; i >= 0; i-- {
@@ -199,11 +199,11 @@ func (c *sequentialClient) Invoke(ctx context.Context, node string, r interface{
 			if err != nil {
 				// TODO: retry on conflict
 				log.Println(err)
-				return response{Ok: false}
+				return seqResponse{Ok: false}
 			}
 			vs = append(vs, v)
 		}
-		resp := response{
+		resp := seqResponse{
 			Ok: true,
 			K:  req.K,
 			V:  vs,
@@ -236,7 +236,7 @@ type sequentialChecker struct{}
 func (sequentialChecker) Check(_ core.Model, ops []core.Operation) (bool, error) {
 	for _, op := range ops {
 		if op.Action == core.ReturnOperation {
-			resp := op.Data.(response)
+			resp := op.Data.(seqResponse)
 			if !resp.Unknown && resp.Ok {
 				foundNoneEmpty := false
 				for _, s := range resp.V {
@@ -262,14 +262,14 @@ type parser struct{}
 
 // OnRequest impls history.RecordParser.OnRequest
 func (p parser) OnRequest(data json.RawMessage) (interface{}, error) {
-	r := request{}
+	r := seqRequest{}
 	err := json.Unmarshal(data, &r)
 	return r, err
 }
 
 // OnResponse impls history.RecordParser.OnRequest
 func (p parser) OnResponse(data json.RawMessage) (interface{}, error) {
-	r := response{}
+	r := seqResponse{}
 	err := json.Unmarshal(data, &r)
 	if r.Unknown {
 		return nil, err
@@ -279,7 +279,7 @@ func (p parser) OnResponse(data json.RawMessage) (interface{}, error) {
 
 // OnNoopResponse impls history.RecordParser.OnRequest
 func (p parser) OnNoopResponse() interface{} {
-	return response{Unknown: true}
+	return seqResponse{Unknown: true}
 }
 
 func (p parser) OnState(data json.RawMessage) (interface{}, error) {

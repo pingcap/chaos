@@ -8,30 +8,30 @@ import (
 
 func TestGenRequest(t *testing.T) {
 	for i := 0; i < 10000; i++ {
-		_ = genRequest().(request)
+		_ = genRequest().(seqRequest)
 	}
 }
 
 func BenchmarkGenRequest(b *testing.B) {
-	_ = genRequest().(request)
+	_ = genRequest().(seqRequest)
 }
 
 func TestCheckSequential(t *testing.T) {
 	good := []core.Operation{
-		core.Operation{Action: core.InvokeOperation, Proc: 0, Data: request{}},
-		core.Operation{Action: core.InvokeOperation, Proc: 1, Data: request{}},
-		core.Operation{Action: core.InvokeOperation, Proc: 2, Data: request{}},
-		core.Operation{Action: core.ReturnOperation, Proc: 1, Data: response{Ok: true, K: 1, V: []string{"", "1", "1"}}},
-		core.Operation{Action: core.ReturnOperation, Proc: 0, Data: response{Ok: true, K: 0, V: []string{"", "", "0"}}},
-		core.Operation{Action: core.ReturnOperation, Proc: 2, Data: response{Ok: true, K: 2, V: []string{"2", "2", "2"}}},
+		core.Operation{Action: core.InvokeOperation, Proc: 0, Data: seqRequest{}},
+		core.Operation{Action: core.InvokeOperation, Proc: 1, Data: seqRequest{}},
+		core.Operation{Action: core.InvokeOperation, Proc: 2, Data: seqRequest{}},
+		core.Operation{Action: core.ReturnOperation, Proc: 1, Data: seqResponse{Ok: true, K: 1, V: []string{"", "1", "1"}}},
+		core.Operation{Action: core.ReturnOperation, Proc: 0, Data: seqResponse{Ok: true, K: 0, V: []string{"", "", "0"}}},
+		core.Operation{Action: core.ReturnOperation, Proc: 2, Data: seqResponse{Ok: true, K: 2, V: []string{"2", "2", "2"}}},
 	}
 	bad := []core.Operation{
-		core.Operation{Action: core.InvokeOperation, Proc: 0, Data: request{}},
-		core.Operation{Action: core.InvokeOperation, Proc: 1, Data: request{}},
-		core.Operation{Action: core.InvokeOperation, Proc: 2, Data: request{}},
-		core.Operation{Action: core.ReturnOperation, Proc: 1, Data: response{Ok: true, K: 1, V: []string{"", "1", "1"}}},
-		core.Operation{Action: core.ReturnOperation, Proc: 0, Data: response{Ok: true, K: 0, V: []string{"0", "", "0"}}},
-		core.Operation{Action: core.ReturnOperation, Proc: 2, Data: response{Ok: true, K: 2, V: []string{"2", "2", "2"}}},
+		core.Operation{Action: core.InvokeOperation, Proc: 0, Data: seqRequest{}},
+		core.Operation{Action: core.InvokeOperation, Proc: 1, Data: seqRequest{}},
+		core.Operation{Action: core.InvokeOperation, Proc: 2, Data: seqRequest{}},
+		core.Operation{Action: core.ReturnOperation, Proc: 1, Data: seqResponse{Ok: true, K: 1, V: []string{"", "1", "1"}}},
+		core.Operation{Action: core.ReturnOperation, Proc: 0, Data: seqResponse{Ok: true, K: 0, V: []string{"0", "", "0"}}},
+		core.Operation{Action: core.ReturnOperation, Proc: 2, Data: seqResponse{Ok: true, K: 2, V: []string{"2", "2", "2"}}},
 	}
 	checker := NewSequentialChecker()
 	ok, err := checker.Check(nil, good)
