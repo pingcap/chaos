@@ -38,9 +38,6 @@ func Wget(ctx context.Context, node string, rawURL string, dest string) (string,
 
 	fileName := path.Base(u.Path)
 	filePath := path.Join(dest, fileName)
-	if IsFileExist(ctx, node, filePath) {
-		return filePath, nil
-	}
 
 	Mkdir(ctx, node, dest)
 	err = ssh.Exec(ctx, node, "wget", "--tries", "20", "--waitretry", "60",
