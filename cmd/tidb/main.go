@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/pingcap/chaos/cmd/util"
@@ -22,10 +24,15 @@ var (
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
 	checkerNames = flag.String("checker", "porcupine", "checker name, eg, porcupine, tidb_bank_tso")
+	pprofAddr    = flag.String("pprof", "0.0.0.0:8080", "Pprof address")
 )
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		http.ListenAndServe(*pprofAddr, nil)
+	}()
 
 	cfg := control.Config{
 		DB:           "tidb",
@@ -41,24 +48,32 @@ func main() {
 		creator = tidb.BankClientCreator{}
 	case "multi_bank":
 		creator = tidb.MultiBankClientCreator{}
+	case "sequential":
+		creator = tidb.SequentialClientCreator{}
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
 
+	parser := tidb.BankParser()
+	model := tidb.BankModel()
 	var checker core.Checker
 	switch *checkerNames {
 	case "porcupine":
 		checker = porcupine.Checker{}
 	case "tidb_bank_tso":
 		checker = tidb.BankTsoChecker()
+	case "sequential_checker":
+		checker = tidb.NewSequentialChecker()
+		parser = tidb.NewSequentialParser()
+		model = nil
 	default:
 		log.Fatalf("invalid checker %s", *checkerNames)
 	}
 
 	verifySuit := verify.Suit{
-		Model:   tidb.BankModel(),
+		Model:   model,
 		Checker: checker,
-		Parser:  tidb.BankParser(),
+		Parser:  parser,
 	}
 	suit := util.Suit{
 		Config:        &cfg,
