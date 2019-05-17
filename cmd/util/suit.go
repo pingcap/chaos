@@ -19,6 +19,7 @@ import (
 type Suit struct {
 	*control.Config
 	core.ClientCreator
+	control.Generator
 	// nemesis, seperated by comma.
 	Nemesises string
 
@@ -63,6 +64,7 @@ func (suit *Suit) Run(ctx context.Context, nodes []string) {
 		sctx,
 		suit.Config,
 		suit.ClientCreator,
+		suit.Generator,
 		nemesisGens,
 		suit.VerifySuit,
 	)

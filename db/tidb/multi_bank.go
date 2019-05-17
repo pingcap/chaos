@@ -133,25 +133,6 @@ func (c *multiBankClient) Invoke(ctx context.Context, node string, r interface{}
 	return bankResponse{Ok: true, Tso: tso, FromBalance: fromBalance, ToBalance: toBalance}
 }
 
-func (c *multiBankClient) NextRequest() interface{} {
-	r := bankRequest{
-		Op: c.r.Int() % 2,
-	}
-	if r.Op == 0 {
-		return r
-	}
-
-	r.From = c.r.Intn(c.accountNum)
-
-	r.To = c.r.Intn(c.accountNum)
-	if r.From == r.To {
-		r.To = (r.To + 1) % c.accountNum
-	}
-
-	r.Amount = 5
-	return r
-}
-
 // DumpState the database state(also the model's state)
 func (c *multiBankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()

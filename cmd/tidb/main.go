@@ -36,11 +36,14 @@ func main() {
 	}
 
 	var creator core.ClientCreator
+	var gen control.Generator
 	switch *clientCase {
 	case "bank":
 		creator = tidb.BankClientCreator{}
+		gen = tidb.BankGenRequest
 	case "multi_bank":
 		creator = tidb.MultiBankClientCreator{}
+		gen = tidb.BankGenRequest
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
@@ -63,6 +66,7 @@ func main() {
 	suit := util.Suit{
 		Config:        &cfg,
 		ClientCreator: creator,
+		Generator:     gen,
 		Nemesises:     *nemesises,
 		VerifySuit:    verifySuit,
 	}

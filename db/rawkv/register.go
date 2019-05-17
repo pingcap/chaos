@@ -13,6 +13,7 @@ import (
 	"github.com/pingcap/tidb/store/tikv"
 	"github.com/pingcap/chaos/pkg/core"
 	"github.com/pingcap/chaos/pkg/model"
+	"github.com/pingcap/chaos/pkg/control"
 )
 
 var (
@@ -76,18 +77,6 @@ func (c *registerClient) Invoke(ctx context.Context, node string, r interface{})
 	return model.RegisterResponse{}
 }
 
-func (c *registerClient) NextRequest() interface{} {
-	r := model.RegisterRequest{
-		Op: c.r.Intn(2) == 1,
-	}
-	if r.Op == model.RegisterRead {
-		return r
-	}
-
-	r.Value = int(c.r.Int63())
-	return r
-}
-
 // DumpState the database state(also the model's state)
 func (c *registerClient) DumpState(ctx context.Context) (interface{}, error) {
 	val, err := c.db.Get(register)
@@ -116,4 +105,16 @@ type RegisterClientCreator struct {
 // Create creates a client.
 func (RegisterClientCreator) Create(node string) core.Client {
 	return &registerClient{}
+}
+
+func RegisterGenRequest(*control.Config, int64) interface{} {
+	r := model.RegisterRequest{
+		Op: rand.Intn(2) == 1,
+	}
+	if r.Op == model.RegisterRead {
+		return r
+	}
+
+	r.Value = int(rand.Int63())
+	return r
 }

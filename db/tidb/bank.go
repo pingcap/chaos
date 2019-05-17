@@ -13,6 +13,7 @@ import (
 	"github.com/anishathalye/porcupine"
 	pchecker "github.com/pingcap/chaos/pkg/check/porcupine"
 	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/control"
 	"github.com/pingcap/chaos/pkg/history"
 
 	// use mysql
@@ -148,25 +149,6 @@ func (c *bankClient) Invoke(ctx context.Context, node string, r interface{}) int
 	return bankResponse{Ok: true, Tso: tso, FromBalance: fromBalance, ToBalance: toBalance}
 }
 
-func (c *bankClient) NextRequest() interface{} {
-	r := bankRequest{
-		Op: c.r.Int() % 2,
-	}
-	if r.Op == 0 {
-		return r
-	}
-
-	r.From = c.r.Intn(c.accountNum)
-
-	r.To = c.r.Intn(c.accountNum)
-	if r.From == r.To {
-		r.To = (r.To + 1) % c.accountNum
-	}
-
-	r.Amount = 5
-	return r
-}
-
 func (c *bankClient) DumpState(ctx context.Context) (interface{}, error) {
 	txn, err := c.db.Begin()
 
@@ -210,6 +192,25 @@ type bankRequest struct {
 	From   int
 	To     int
 	Amount int64
+}
+
+func BankGenRequest(*control.Config, int64) interface{} {
+	r := bankRequest{
+		Op: rand.Int() % 2,
+	}
+	if r.Op == 0 {
+		return r
+	}
+
+	r.From = rand.Intn(accountNum)
+
+	r.To = rand.Intn(accountNum)
+	if r.From == r.To {
+		r.To = (r.To + 1) % accountNum
+	}
+
+	r.Amount = 5
+	return r
 }
 
 type bankResponse struct {
