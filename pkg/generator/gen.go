@@ -7,6 +7,11 @@ import (
 	"github.com/pingcap/chaos/pkg/control"
 )
 
+type PairedGenerator struct {
+	key interface{}
+	gen control.Generator
+}
+
 // Reserve takes a series of count, generator pairs, and a final default
 // generator.     
 //     (reserve 5 write 10 cas read)
@@ -16,13 +21,14 @@ import (
 // have a chance to proceed concurrently--for instance, if writes begin
 // blocking, you might like reads to proceed concurrently without every thread
 // getting tied up in a write.
-func Reserve(final control.Generator, gens ...(int, control.Generator)) control.Generator {
+func Reserve(final control.Generator, gens ...PairedGenerator) control.Generator {
 	return func(cfg *control.Config, proc int64) interface{} {
-		thread := proc % len(cfg.Nodes)
+		thread := (proc - 1) % len(cfg.Nodes)
 		cnt := 0
-		for _, (n, gen) in gens {
-			if thread >= cnt && thread < cnt + n{
-				return gen(cfg, proc)
+		for _, pair in gens {
+			n := pair.key.(int)
+			if thread >= cnt && thread < cnt + n {
+				return pair.gen(cfg, proc)
 			}
 			cnt += n
 		}
