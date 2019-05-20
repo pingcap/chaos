@@ -25,7 +25,7 @@ func Reserve(final control.Generator, gens ...PairedGenerator) control.Generator
 	return func(cfg *control.Config, proc int64) interface{} {
 		thread := (proc - 1) % len(cfg.Nodes)
 		cnt := 0
-		for _, pair in gens {
+		for _, pair := range gens {
 			n := pair.key.(int)
 			if thread >= cnt && thread < cnt + n {
 				return pair.gen(cfg, proc)
