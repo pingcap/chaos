@@ -4,19 +4,23 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"log"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 
 	"github.com/pingcap/chaos/pkg/core"
+	"github.com/pingcap/chaos/pkg/history"
 )
 
 const (
-	lfRead  = "read"
-	lfWrite = "write"
+	lfRead      = "read"
+	lfWrite     = "write"
+	lfGroupSize = 10
 )
 
 type lfRequest struct {
@@ -46,7 +50,6 @@ var (
 type longForkClient struct {
 	db         *sql.DB
 	r          *rand.Rand
-	groupSize  uint64
 	tableCount int
 	node       string
 }
@@ -150,7 +153,7 @@ func (c *longForkClient) NextRequest() interface{} {
 	key, present := lfState.workers[c.node]
 	if present {
 		delete(lfState.workers, c.node)
-		return lfRequest{Kind: lfRead, Keys: makeKeysInGroup(c.r, c.groupSize, key)}
+		return lfRequest{Kind: lfRead, Keys: makeKeysInGroup(c.r, lfGroupSize, key)}
 	}
 
 	if c.r.Int()%2 == 0 {
@@ -162,7 +165,7 @@ func (c *longForkClient) NextRequest() interface{} {
 				idx++
 			}
 			key := others[c.r.Intn(size)]
-			return lfRequest{Kind: lfRead, Keys: makeKeysInGroup(c.r, c.groupSize, key)}
+			return lfRequest{Kind: lfRead, Keys: makeKeysInGroup(c.r, lfGroupSize, key)}
 		}
 	}
 
@@ -193,8 +196,150 @@ type LongForkClientCreator struct {
 // Create creates a new longForkClient.
 func (LongForkClientCreator) Create(node string) core.Client {
 	return &longForkClient{
-		groupSize:  10,
 		tableCount: 7,
 		node:       node,
 	}
+}
+
+type lfParser struct{}
+
+func (p lfParser) OnRequest(data json.RawMessage) (interface{}, error) {
+	r := lfRequest{}
+	err := json.Unmarshal(data, &r)
+	return r, err
+}
+
+func (p lfParser) OnResponse(data json.RawMessage) (interface{}, error) {
+	r := lfResponse{}
+	err := json.Unmarshal(data, &r)
+	// I have no idea why we need this
+	if r.Unknown {
+		return nil, err
+	}
+	return r, err
+}
+
+func (p lfParser) OnNoopResponse() interface{} {
+	return lfResponse{Unknown: true}
+}
+
+func (p lfParser) OnState(data json.RawMessage) (interface{}, error) {
+	return nil, nil
+}
+
+// LongForkParser parses a history of long fork test.
+func LongForkParser() history.RecordParser {
+	return lfParser{}
+}
+
+type lfChecker struct{}
+
+func ensureNoLongForks(ops []core.Operation) bool {
+	groups := make(map[[lfGroupSize]uint64][][lfGroupSize]uint64)
+	for _, op := range ops {
+		if op.Action != core.ReturnOperation {
+			continue
+		}
+		res := op.Data.(lfResponse)
+		// you con not get request from the response...
+		if len(res.Values) == 0 {
+			// it's a write
+			continue
+		}
+		if res.Ok && !res.Unknown {
+			continue
+		}
+		if len(res.Keys) != lfGroupSize || len(res.Values) != lfGroupSize {
+			log.Printf("The read respond should have %v keys and %v values, but it has %v keys and %v values",
+				lfGroupSize, lfGroupSize, len(res.Keys), len(res.Values))
+			return false
+		}
+		type pair struct {
+			key   uint64
+			value uint64
+		}
+		//sort key
+		var pairs [lfGroupSize]pair
+		for i := 0; i < lfGroupSize; i++ {
+			pairs[i] = pair{key: res.Keys[i], value: res.Values[i]}
+		}
+		sort.Slice(pairs, func(i, j int) bool { return pairs[i].key < pairs[j].key })
+		var keys [lfGroupSize]uint64
+		var values [lfGroupSize]uint64
+		for i := 0; i < lfGroupSize; i++ {
+			keys[i] = pairs[i].key
+			values[i] = pairs[i].value
+		}
+		groups[keys] = append(groups[keys], values)
+	}
+	for keys, results := range groups {
+		count := len(results)
+		for p := 0; p < count; p++ {
+			for q := p + 1; q < count; q++ {
+				values1 := results[p]
+				values2 := results[q]
+				//compare!
+				var result int
+				for i := 0; i < lfGroupSize; i++ {
+					present1 := values1[i] > 0
+					present2 := values2[i] > 0
+					if present1 && !present2 {
+						if result > 0 {
+							log.Printf("Detected fork in history, read to %v returns %v and %v", keys, values1, values2)
+							return false
+						}
+						result = -1
+					}
+					if !present1 && present2 {
+						if result < 0 {
+							log.Printf("Detected fork in history, read to %v returns %v and %v", keys, values1, values2)
+							return false
+						}
+						result = 1
+					}
+				}
+			}
+		}
+	}
+	return true
+}
+
+func ensureNoMultipleWritesToOneKey(ops []core.Operation) bool {
+	keySet := make(map[uint64]bool)
+	for _, op := range ops {
+		if op.Action != core.InvokeOperation {
+			continue
+		}
+		req := op.Data.(lfRequest)
+		if req.Kind != lfWrite {
+			continue
+		}
+		for _, key := range req.Keys {
+			if _, prs := keySet[key]; prs {
+				log.Printf("The key %v was written twice", key)
+				return false
+			}
+			keySet[key] = true
+		}
+	}
+	return true
+}
+
+func (lfChecker) Check(_ core.Model, ops []core.Operation) (bool, error) {
+	if !ensureNoMultipleWritesToOneKey(ops) {
+		return false, nil
+	}
+	if !ensureNoLongForks(ops) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (lfChecker) Name() string {
+	return "tidb_long_fork_checker"
+}
+
+// LongForkChecker checks the long fork test history.
+func LongForkChecker() core.Checker {
+	return lfChecker{}
 }
