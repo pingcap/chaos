@@ -41,24 +41,32 @@ func main() {
 		creator = tidb.BankClientCreator{}
 	case "multi_bank":
 		creator = tidb.MultiBankClientCreator{}
+	case "long_fork":
+		creator = tidb.LongForkClientCreator{}
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
 
+	parser := tidb.BankParser()
+	model := tidb.BankModel()
 	var checker core.Checker
 	switch *checkerNames {
 	case "porcupine":
 		checker = porcupine.Checker{}
 	case "tidb_bank_tso":
 		checker = tidb.BankTsoChecker()
+	case "long_fork_checker":
+		checker = tidb.LongForkChecker()
+		parser = tidb.LongForkParser()
+		model = nil
 	default:
 		log.Fatalf("invalid checker %s", *checkerNames)
 	}
 
 	verifySuit := verify.Suit{
-		Model:   tidb.BankModel(),
+		Model:   model,
 		Checker: checker,
-		Parser:  tidb.BankParser(),
+		Parser:  parser,
 	}
 	suit := util.Suit{
 		Config:        &cfg,
