@@ -234,7 +234,7 @@ func LongForkParser() history.RecordParser {
 
 type lfChecker struct{}
 
-func ensureNoLongForks(ops []core.Operation) bool {
+func ensureNoLongForks(ops []core.Operation) (bool, error) {
 	groups := make(map[[lfGroupSize]uint64][][lfGroupSize]uint64)
 	for _, op := range ops {
 		if op.Action != core.ReturnOperation {
@@ -250,9 +250,8 @@ func ensureNoLongForks(ops []core.Operation) bool {
 			continue
 		}
 		if len(res.Keys) != lfGroupSize || len(res.Values) != lfGroupSize {
-			log.Printf("The read respond should have %v keys and %v values, but it has %v keys and %v values",
+			return false, fmt.Errorf("The read respond should have %v keys and %v values, but it has %v keys and %v values",
 				lfGroupSize, lfGroupSize, len(res.Keys), len(res.Values))
-			return false
 		}
 		type pair struct {
 			key   uint64
@@ -286,25 +285,31 @@ func ensureNoLongForks(ops []core.Operation) bool {
 					if present1 && !present2 {
 						if result > 0 {
 							log.Printf("Detected fork in history, read to %v returns %v and %v", keys, values1, values2)
-							return false
+							return false, nil
 						}
 						result = -1
 					}
 					if !present1 && present2 {
 						if result < 0 {
 							log.Printf("Detected fork in history, read to %v returns %v and %v", keys, values1, values2)
-							return false
+							return false, nil
 						}
 						result = 1
+					}
+					if present1 && present2 {
+						if values1[i] != values2[i] {
+							return false, fmt.Errorf("The key %v was write twice since it had two different values %v and %v",
+								keys[i], values1[i], values2[i])
+						}
 					}
 				}
 			}
 		}
 	}
-	return true
+	return true, nil
 }
 
-func ensureNoMultipleWritesToOneKey(ops []core.Operation) bool {
+func ensureNoMultipleWritesToOneKey(ops []core.Operation) (bool, error) {
 	keySet := make(map[uint64]bool)
 	for _, op := range ops {
 		if op.Action != core.InvokeOperation {
@@ -316,20 +321,23 @@ func ensureNoMultipleWritesToOneKey(ops []core.Operation) bool {
 		}
 		for _, key := range req.Keys {
 			if _, prs := keySet[key]; prs {
-				log.Printf("The key %v was written twice", key)
-				return false
+				return false, fmt.Errorf("The key %v was written twice", key)
 			}
 			keySet[key] = true
 		}
 	}
-	return true
+	return true, nil
 }
 
 func (lfChecker) Check(_ core.Model, ops []core.Operation) (bool, error) {
-	if !ensureNoMultipleWritesToOneKey(ops) {
+	if result, err := ensureNoMultipleWritesToOneKey(ops); err != nil {
+		return false, err
+	} else if !result {
 		return false, nil
 	}
-	if !ensureNoLongForks(ops) {
+	if result, err := ensureNoLongForks(ops); err != nil {
+		return false, err
+	} else if !result {
 		return false, nil
 	}
 	return true, nil
