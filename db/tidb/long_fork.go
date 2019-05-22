@@ -234,8 +234,10 @@ func LongForkParser() history.RecordParser {
 
 type lfChecker struct{}
 
-func ensureNoLongForks(ops []core.Operation) (bool, error) {
-	groups := make(map[[lfGroupSize]uint64][][lfGroupSize]uint64)
+func ensureNoLongForks(ops []core.Operation, groupSize int) (bool, error) {
+	// why we cannot have something like map<vec<T>,T> in golang?
+	keyset := make(map[string][]uint64)
+	groups := make(map[string][][]uint64)
 	for _, op := range ops {
 		if op.Action != core.ReturnOperation {
 			continue
@@ -246,32 +248,35 @@ func ensureNoLongForks(ops []core.Operation) (bool, error) {
 			// it's a write
 			continue
 		}
-		if res.Ok && !res.Unknown {
+		if !res.Ok || res.Unknown {
 			continue
 		}
-		if len(res.Keys) != lfGroupSize || len(res.Values) != lfGroupSize {
+		if len(res.Keys) != groupSize || len(res.Values) != groupSize {
 			return false, fmt.Errorf("The read respond should have %v keys and %v values, but it has %v keys and %v values",
-				lfGroupSize, lfGroupSize, len(res.Keys), len(res.Values))
+				groupSize, groupSize, len(res.Keys), len(res.Values))
 		}
 		type pair struct {
 			key   uint64
 			value uint64
 		}
 		//sort key
-		var pairs [lfGroupSize]pair
-		for i := 0; i < lfGroupSize; i++ {
+		pairs := make([]pair, groupSize)
+		for i := 0; i < groupSize; i++ {
 			pairs[i] = pair{key: res.Keys[i], value: res.Values[i]}
 		}
 		sort.Slice(pairs, func(i, j int) bool { return pairs[i].key < pairs[j].key })
-		var keys [lfGroupSize]uint64
-		var values [lfGroupSize]uint64
-		for i := 0; i < lfGroupSize; i++ {
+		keys := make([]uint64, groupSize)
+		values := make([]uint64, groupSize)
+		for i := 0; i < groupSize; i++ {
 			keys[i] = pairs[i].key
 			values[i] = pairs[i].value
 		}
-		groups[keys] = append(groups[keys], values)
+		str := fmt.Sprintf("%v", keys)
+		groups[str] = append(groups[str], values)
+		keyset[str] = keys
 	}
-	for keys, results := range groups {
+	for str, results := range groups {
+		keys := keyset[str]
 		count := len(results)
 		for p := 0; p < count; p++ {
 			for q := p + 1; q < count; q++ {
@@ -279,7 +284,7 @@ func ensureNoLongForks(ops []core.Operation) (bool, error) {
 				values2 := results[q]
 				//compare!
 				var result int
-				for i := 0; i < lfGroupSize; i++ {
+				for i := 0; i < groupSize; i++ {
 					present1 := values1[i] > 0
 					present2 := values2[i] > 0
 					if present1 && !present2 {
@@ -330,14 +335,14 @@ func ensureNoMultipleWritesToOneKey(ops []core.Operation) (bool, error) {
 }
 
 func (lfChecker) Check(_ core.Model, ops []core.Operation) (bool, error) {
-	if result, err := ensureNoMultipleWritesToOneKey(ops); err != nil {
+	if ok, err := ensureNoMultipleWritesToOneKey(ops); err != nil {
 		return false, err
-	} else if !result {
+	} else if !ok {
 		return false, nil
 	}
-	if result, err := ensureNoLongForks(ops); err != nil {
+	if ok, err := ensureNoLongForks(ops, lfGroupSize); err != nil {
 		return false, err
-	} else if !result {
+	} else if !ok {
 		return false, nil
 	}
 	return true, nil
