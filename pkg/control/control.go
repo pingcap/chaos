@@ -14,9 +14,6 @@ import (
 
 	// register nemesis
 	_ "github.com/pingcap/chaos/pkg/nemesis"
-
-	// register tidb
-	_ "github.com/pingcap/chaos/db/tidb"
 )
 
 // Controller controls the whole cluster. It sends request to the database,
@@ -25,7 +22,8 @@ import (
 type Controller struct {
 	cfg *Config
 
-	clients []core.Client
+	clients         []core.Client
+	clientGenerator Generator
 
 	nemesisGenerators []core.NemesisGenerator
 
@@ -43,6 +41,7 @@ func NewController(
 	ctx context.Context,
 	cfg *Config,
 	clientCreator core.ClientCreator,
+	clientGenerator Generator,
 	nemesisGenerators []core.NemesisGenerator,
 	verifySuit verify.Suit,
 ) *Controller {
@@ -59,6 +58,7 @@ func NewController(
 	c := new(Controller)
 	c.cfg = cfg
 	c.ctx, c.cancel = context.WithCancel(ctx)
+	c.clientGenerator = clientGenerator
 	c.nemesisGenerators = nemesisGenerators
 	c.suit = verifySuit
 
@@ -235,7 +235,7 @@ func (c *Controller) onClientLoop(
 
 	procID := atomic.AddInt64(&c.proc, 1)
 	for atomic.AddInt64(requestCount, -1) >= 0 {
-		request := client.NextRequest()
+		request := c.clientGenerator(c.cfg, procID)
 
 		if err := recorder.RecordRequest(procID, request); err != nil {
 			log.Fatalf("record request %v failed %v", request, err)

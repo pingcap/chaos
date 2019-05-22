@@ -36,9 +36,11 @@ func main() {
 	}
 
 	var creator core.ClientCreator
+	var gen control.Generator
 	switch *clientCase {
 	case "register":
 		creator = txnkv.RegisterClientCreator{}
+		gen = txnkv.RegisterGenRequest
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
@@ -51,6 +53,7 @@ func main() {
 	suit := util.Suit{
 		Config:        &cfg,
 		ClientCreator: creator,
+		Generator:     gen,
 		Nemesises:     *nemesises,
 		VerifySuit:    verifySuit,
 	}

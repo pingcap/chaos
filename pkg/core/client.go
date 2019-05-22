@@ -21,8 +21,6 @@ type Client interface {
 	// Invoke invokes a request to the database.
 	// Mostly, the return Response should implement UnknownResponse interface
 	Invoke(ctx context.Context, node string, r interface{}) interface{}
-	// NextRequest generates a request for latter Invoke.
-	NextRequest() interface{}
 	// DumpState the database state(also the model's state)
 	DumpState(ctx context.Context) (interface{}, error)
 }
@@ -55,11 +53,6 @@ func (noopClient) TearDown(ctx context.Context, nodes []string, node string) err
 
 // Invoke invokes a request to the database.
 func (noopClient) Invoke(ctx context.Context, node string, r interface{}) interface{} {
-	return nil
-}
-
-// NextRequest generates a request for latter Invoke.
-func (noopClient) NextRequest() interface{} {
 	return nil
 }
 
