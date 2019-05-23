@@ -1,4 +1,12 @@
-version: '2'
+version: '3.7'
+x-node:
+  &default-node
+  build: ./node
+  env_file: ./secret/node.env
+  privileged: true
+  networks:
+    - chaos
+
 services:
   control:
     container_name: chaos-control
@@ -6,34 +14,30 @@ services:
     build: ./control
     env_file: ./secret/control.env
     privileged: true
-    links:
-      - n1
-      - n2
-      - n3
-      - n4
-      - n5
-  node:
-    container_name: chaos-node
-    build: ./node
-    env_file: ./secret/node.env
-    privileged: true
+    ports:
+      - "8080"
+    networks:
+      - chaos
   n1:
-    extends: node
+    << : *default-node
     container_name: chaos-n1
     hostname: n1
   n2:
-    extends: node
+    << : *default-node
     container_name: chaos-n2
     hostname: n2
   n3:
-    extends: node
+    << : *default-node
     container_name: chaos-n3
     hostname: n3
   n4:
-    extends: node
+    << : *default-node
     container_name: chaos-n4
     hostname: n4
   n5:
-    extends: node
+    << : *default-node
     container_name: chaos-n5
     hostname: n5
+
+networks:
+  chaos:

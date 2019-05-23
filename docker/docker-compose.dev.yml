@@ -1,0 +1,6 @@
+version: '3.7'
+services:
+  control:
+    volumes:
+      # Mounts $CHAOS_ROOT on host to /go/src/github.com/pingcap/chaos control container
+      - ${CHAOS_ROOT}:/go/src/github.com/pingcap/chaos

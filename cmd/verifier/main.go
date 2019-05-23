@@ -50,6 +50,8 @@ func main() {
 			case "tidb_bank_tso":
 				// Actually we can omit BankModel, since BankTsoChecker does not require a Model.
 				s.Model, s.Parser, s.Checker = tidb.BankModel(), tidb.BankParser(), tidb.BankTsoChecker()
+			case "sequential":
+				s.Parser, s.Checker = tidb.NewSequentialParser(), tidb.NewSequentialChecker()
 			case "register":
 				s.Model, s.Parser, s.Checker = model.RegisterModel(), model.RegisterParser(), porcupine.Checker{}
 			case "":

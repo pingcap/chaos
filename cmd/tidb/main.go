@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/pingcap/chaos/cmd/util"
@@ -22,10 +24,15 @@ var (
 	historyFile  = flag.String("history", "./history.log", "history file")
 	nemesises    = flag.String("nemesis", "", "nemesis, seperated by name, like random_kill,all_kill")
 	checkerNames = flag.String("checker", "porcupine", "checker name, eg, porcupine, tidb_bank_tso")
+	pprofAddr    = flag.String("pprof", "0.0.0.0:8080", "Pprof address")
 )
 
 func main() {
 	flag.Parse()
+
+	go func() {
+		http.ListenAndServe(*pprofAddr, nil)
+	}()
 
 	cfg := control.Config{
 		DB:           "tidb",
@@ -43,6 +50,8 @@ func main() {
 		creator = tidb.MultiBankClientCreator{}
 	case "long_fork":
 		creator = tidb.LongForkClientCreator{}
+	case "sequential":
+		creator = tidb.SequentialClientCreator{}
 	default:
 		log.Fatalf("invalid client test case %s", *clientCase)
 	}
@@ -58,6 +67,10 @@ func main() {
 	case "long_fork_checker":
 		checker = tidb.LongForkChecker()
 		parser = tidb.LongForkParser()
+		model = nil
+	case "sequential_checker":
+		checker = tidb.NewSequentialChecker()
+		parser = tidb.NewSequentialParser()
 		model = nil
 	default:
 		log.Fatalf("invalid checker %s", *checkerNames)

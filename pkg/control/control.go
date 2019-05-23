@@ -241,7 +241,9 @@ func (c *Controller) onClientLoop(
 			log.Fatalf("record request %v failed %v", request, err)
 		}
 
+		log.Printf("%s: call %+v", node, request)
 		response := client.Invoke(ctx, node, request)
+		log.Printf("%s: return %+v", node, response)
 		isUnknown := true
 		if v, ok := response.(core.UnknownResponse); ok {
 			isUnknown = v.IsUnknown()
