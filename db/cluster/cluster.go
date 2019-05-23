@@ -7,6 +7,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pingcap/chaos/pkg/util"
@@ -27,6 +28,7 @@ var (
 
 	pdConfig   = path.Join(deployDir, "./conf/pd.toml")
 	tikvConfig = path.Join(deployDir, "./conf/tikv.toml")
+	tidbConfig = path.Join(deployDir, "./conf/tidb.toml")
 
 	pdLog   = path.Join(deployDir, "./log/pd.log")
 	tikvLog = path.Join(deployDir, "./log/tikv.log")
@@ -36,6 +38,7 @@ var (
 // Cluster is the TiKV/TiDB database cluster.
 // Note: Cluster does not implement `core.DB` interface.
 type Cluster struct {
+	once           sync.Once
 	nodes          []string
 	installBlocker util.BlockRunner
 	IncludeTidb    bool
@@ -50,15 +53,18 @@ func (cluster *Cluster) SetUp(ctx context.Context, nodes []string, node string) 
 	ssh.Exec(ctx, node, "killall", "-9", "tikv-server")
 	ssh.Exec(ctx, node, "killall", "-9", "pd-server")
 
-	cluster.nodes = nodes
-
-	cluster.installBlocker.Init(len(nodes))
+	cluster.once.Do(func() {
+		cluster.nodes = nodes
+		cluster.installBlocker.Init(len(nodes))
+	})
 
 	log.Printf("install archieve on node %s", node)
 
 	var err error
 	cluster.installBlocker.Run(func() {
-		err = util.InstallArchive(ctx, node, archiveURL, deployDir)
+		if !util.IsFileExist(ctx, node, deployDir) {
+			err = util.InstallArchive(ctx, node, archiveURL, deployDir)
+		}
 	})
 	if err != nil {
 		return err
@@ -72,7 +78,7 @@ func (cluster *Cluster) SetUp(ctx context.Context, nodes []string, node string) 
 		"election-interval=\"500ms\"",
 		"tso-save-interval=\"500ms\"",
 		"[replication]",
-		"max-replicas=5",
+		"max-replicas=3",
 	}
 
 	if err := util.WriteFile(ctx, node, pdConfig, strconv.Quote(strings.Join(pdCfs, "\n"))); err != nil {
@@ -80,16 +86,34 @@ func (cluster *Cluster) SetUp(ctx context.Context, nodes []string, node string) 
 	}
 
 	tikvCfs := []string{
+		"[server]",
+		"status-addr=\"0.0.0.0:20180\"",
 		"[raftstore]",
-		"pd-heartbeat-tick-interval=\"500ms\"",
-		"pd-store-heartbeat-tick-interval=\"1s\"",
-		"raft_store_max_leader_lease=\"900ms\"",
+		"capacity =\"100G\"",
+		"pd-heartbeat-tick-interval=\"3s\"",
+		"raft_store_max_leader_lease=\"50ms\"",
 		"raft_base_tick_interval=\"100ms\"",
 		"raft_heartbeat_ticks=3",
 		"raft_election_timeout_ticks=10",
+		"sync-log = true",
+		"[coprocessor]",
+		"region-max-keys = 5",
+		"region-split-keys = 2",
 	}
 
 	if err := util.WriteFile(ctx, node, tikvConfig, strconv.Quote(strings.Join(tikvCfs, "\n"))); err != nil {
+		return err
+	}
+
+	tidbCfs := []string{
+		"lease = \"1s\"",
+		"split-table = true",
+		"[tikv-client]",
+		"commit-timeout = \"10ms\"",
+		"max-txn-time-use = 590",
+	}
+
+	if err := util.WriteFile(ctx, node, tidbConfig, strconv.Quote(strings.Join(tidbCfs, "\n"))); err != nil {
 		return err
 	}
 
@@ -178,10 +202,6 @@ WAIT:
 		return err
 	}
 
-	if inSetUp {
-		time.Sleep(30 * time.Second)
-	}
-
 	if !util.IsDaemonRunning(ctx, node, tikvBinary, tikvPID) {
 		return fmt.Errorf("fail to start tikv on node %s", node)
 	}
@@ -191,6 +211,7 @@ WAIT:
 			"--store=tikv",
 			fmt.Sprintf("--path=%s", strings.Join(pdEndpoints, ",")),
 			fmt.Sprintf("--log-file=%s", tidbLog),
+			fmt.Sprintf("--config=%s", tidbConfig),
 		}
 
 		log.Printf("start tidb-server on node %s", node)

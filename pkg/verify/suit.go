@@ -16,7 +16,11 @@ type Suit struct {
 
 // Verify creates the verifier from model name and verfies the history file.
 func (s Suit) Verify(historyFile string) {
-	log.Printf("begin to check %s with %s", s.Model.Name(), s.Checker.Name())
+	if s.Model == nil {
+		log.Printf("begin to check %s", s.Checker.Name())
+	} else {
+		log.Printf("begin to check %s with %s", s.Model.Name(), s.Checker.Name())
+	}
 	ops, state, err := history.ReadHistory(historyFile, s.Parser)
 	if err != nil {
 		log.Fatalf("verify failed: %v", err)
@@ -27,15 +31,17 @@ func (s Suit) Verify(historyFile string) {
 		log.Fatalf("verify failed: %v", err)
 	}
 
-	s.Model.Prepare(state)
+	if s.Model != nil {
+		s.Model.Prepare(state)
+	}
 	ok, err := s.Checker.Check(s.Model, ops)
 	if err != nil {
 		log.Fatalf("verify history failed %v", err)
 	}
 
 	if !ok {
-		log.Fatalf("%s: history %s is not linearizable", s.Model.Name(), historyFile)
+		log.Fatalf("history %s is not valid", historyFile)
 	} else {
-		log.Printf("%s: history %s is linearizable", s.Model.Name(), historyFile)
+		log.Printf("history %s is valid", historyFile)
 	}
 }
