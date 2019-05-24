@@ -32,7 +32,7 @@ type lfResponse struct {
 	Ok      bool
 	Unknown bool
 	Keys    []uint64
-	Values  []uint64
+	Values  []sql.NullInt64
 }
 
 var (
@@ -93,8 +93,8 @@ func (c *longForkClient) SetUp(ctx context.Context, nodes []string, node string)
 			fmt.Sprintf("drop table if exists %s", tableName)); err != nil {
 			return err
 		}
-		sql := "create table if not exists %s (id int not null primary key,sk int not null,val int)"
-		if _, err = db.ExecContext(ctx, fmt.Sprintf(sql, tableName)); err != nil {
+		query := "create table if not exists %s (id int not null primary key,sk int not null,val int)"
+		if _, err = db.ExecContext(ctx, fmt.Sprintf(query, tableName)); err != nil {
 			return err
 		}
 		log.Printf("created table %s", tableName)
@@ -112,12 +112,13 @@ func (c *longForkClient) Invoke(ctx context.Context, node string, r interface{})
 	if arg.Kind == lfWrite {
 
 		key := arg.Keys[0]
-		sql := fmt.Sprintf("insert into %s (id, sk, val) values (?, ?, ?) on duplicate key update val = ?", lfKey2Table(c.tableCount, key))
-		_, err := c.db.ExecContext(ctx, sql, key, key, 1, 1)
+		query := fmt.Sprintf("insert into %s (id, sk, val) values (?, ?, ?) on duplicate key update val = ?", lfKey2Table(c.tableCount, key))
+		_, err := c.db.ExecContext(ctx, query, key, key, 1, 1)
 		if err != nil {
-			return lfResponse{Ok: false, Keys: []uint64{key}, Values: []uint64{1}}
+			return lfResponse{Ok: false}
 		}
-		return lfResponse{Ok: true}
+		values := make([]sql.NullInt64, 0)
+		return lfResponse{Ok: true, Keys: []uint64{key}, Values: values}
 
 	} else if arg.Kind == lfRead {
 
@@ -127,12 +128,16 @@ func (c *longForkClient) Invoke(ctx context.Context, node string, r interface{})
 			return lfResponse{Ok: false}
 		}
 
-		values := make([]uint64, len(arg.Keys))
+		values := make([]sql.NullInt64, len(arg.Keys))
 		for i, key := range arg.Keys {
-			sql := fmt.Sprintf("select (val) from %s where id = ?", lfKey2Table(c.tableCount, key))
-			err := txn.QueryRowContext(ctx, sql, key).Scan(&values[i])
+			query := fmt.Sprintf("select (val) from %s where id = ?", lfKey2Table(c.tableCount, key))
+			err := txn.QueryRowContext(ctx, query, key).Scan(&values[i])
 			if err != nil {
-				return lfResponse{Ok: false}
+				if err == sql.ErrNoRows {
+					values[i] = sql.NullInt64{Valid: false}
+				} else {
+					return lfResponse{Ok: false}
+				}
 			}
 		}
 
@@ -237,7 +242,7 @@ type lfChecker struct{}
 func ensureNoLongForks(ops []core.Operation, groupSize int) (bool, error) {
 	// why we cannot have something like map<vec<T>,T> in golang?
 	keyset := make(map[string][]uint64)
-	groups := make(map[string][][]uint64)
+	groups := make(map[string][][]sql.NullInt64)
 	for _, op := range ops {
 		if op.Action != core.ReturnOperation {
 			continue
@@ -257,7 +262,7 @@ func ensureNoLongForks(ops []core.Operation, groupSize int) (bool, error) {
 		}
 		type pair struct {
 			key   uint64
-			value uint64
+			value sql.NullInt64
 		}
 		//sort key
 		pairs := make([]pair, groupSize)
@@ -266,7 +271,7 @@ func ensureNoLongForks(ops []core.Operation, groupSize int) (bool, error) {
 		}
 		sort.Slice(pairs, func(i, j int) bool { return pairs[i].key < pairs[j].key })
 		keys := make([]uint64, groupSize)
-		values := make([]uint64, groupSize)
+		values := make([]sql.NullInt64, groupSize)
 		for i := 0; i < groupSize; i++ {
 			keys[i] = pairs[i].key
 			values[i] = pairs[i].value
@@ -285,8 +290,8 @@ func ensureNoLongForks(ops []core.Operation, groupSize int) (bool, error) {
 				//compare!
 				var result int
 				for i := 0; i < groupSize; i++ {
-					present1 := values1[i] > 0
-					present2 := values2[i] > 0
+					present1 := values1[i].Valid
+					present2 := values2[i].Valid
 					if present1 && !present2 {
 						if result > 0 {
 							log.Printf("Detected fork in history, read to %v returns %v and %v", keys, values1, values2)
