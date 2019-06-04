@@ -42,7 +42,7 @@ func Wget(ctx context.Context, node string, rawURL string, dest string) (string,
 	Mkdir(ctx, node, dest)
 	err = ssh.Exec(ctx, node, "wget", "--tries", "20", "--waitretry", "60",
 		"--retry-connrefused", "--dns-timeout", "60", "--connect-timeout", "60",
-		"--read-timeout", "60", "--directory-prefix", dest, rawURL)
+		"--read-timeout", "60", "--no-clobber", "--no-verbose", "--directory-prefix", dest, rawURL)
 	return filePath, err
 }
 
@@ -69,6 +69,8 @@ func InstallArchive(ctx context.Context, node string, rawURL string, dest string
 
 	if strings.HasSuffix(name, ".zip") {
 		err = ssh.Exec(ctx, node, "unzip", "-d", tmpDir, name)
+	} else if strings.HasSuffix(name, ".tar.gz") {
+		err = ssh.Exec(ctx, node, "tar", "-xzf", name, "-C", tmpDir)
 	} else {
 		err = ssh.Exec(ctx, node, "tar", "-xf", name, "-C", tmpDir)
 	}

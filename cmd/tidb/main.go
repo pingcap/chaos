@@ -48,6 +48,8 @@ func main() {
 		creator = tidb.BankClientCreator{}
 	case "multi_bank":
 		creator = tidb.MultiBankClientCreator{}
+	case "long_fork":
+		creator = tidb.LongForkClientCreator{}
 	case "sequential":
 		creator = tidb.SequentialClientCreator{}
 	default:
@@ -62,6 +64,10 @@ func main() {
 		checker = porcupine.Checker{}
 	case "tidb_bank_tso":
 		checker = tidb.BankTsoChecker()
+	case "long_fork_checker":
+		checker = tidb.LongForkChecker()
+		parser = tidb.LongForkParser()
+		model = nil
 	case "sequential_checker":
 		checker = tidb.NewSequentialChecker()
 		parser = tidb.NewSequentialParser()
