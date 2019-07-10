@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
-	"github.com/pingcap/tidb/config"
-	"github.com/pingcap/tidb/store/tikv"
 	"github.com/pingcap/chaos/pkg/core"
 	"github.com/pingcap/chaos/pkg/model"
+	"github.com/pingcap/tidb/config"
+	"github.com/pingcap/tidb/store/tikv"
 )
 
 var (
@@ -26,7 +26,6 @@ type registerClient struct {
 
 func (c *registerClient) SetUp(ctx context.Context, nodes []string, node string) error {
 	c.r = rand.New(rand.NewSource(time.Now().UnixNano()))
-	tikv.MaxConnectionCount = 128
 	db, err := tikv.NewRawKVClient([]string{fmt.Sprintf("%s:2379", node)}, config.Security{})
 	if err != nil {
 		return err
