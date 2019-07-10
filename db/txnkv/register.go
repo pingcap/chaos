@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/anishathalye/porcupine"
-	"github.com/pingcap/tidb/kv"
-	"github.com/pingcap/tidb/store/tikv"
 	"github.com/pingcap/chaos/pkg/core"
 	"github.com/pingcap/chaos/pkg/model"
+	"github.com/pingcap/tidb/kv"
+	"github.com/pingcap/tidb/store/tikv"
 )
 
 var (
@@ -29,7 +29,6 @@ type registerClient struct {
 
 func (c *registerClient) SetUp(ctx context.Context, nodes []string, node string) error {
 	c.r = rand.New(rand.NewSource(time.Now().UnixNano()))
-	tikv.MaxConnectionCount = 128
 	driver := tikv.Driver{}
 	db, err := driver.Open(fmt.Sprintf("tikv://%s:2379?disableGC=true", node))
 	if err != nil {
